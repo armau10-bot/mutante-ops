@@ -491,8 +491,8 @@ function renderEgresos(d) {
   document.getElementById('e-nom').textContent = fmt(eg.filter(r=>r.categoria==='NOMINA').reduce((s,r)=>s+r.total,0));
   document.getElementById('e-arr').textContent = fmt(eg.filter(r=>r.categoria==='PAGO ARRIENDO').reduce((s,r)=>s+r.total,0));
   // Promedio mensual
-  const meses = [...new Set(eg.map(r=>String(r.fecha).substring(0,7)).filter(Boolean))];
-  const prom = meses.length ? Math.round(tot / meses.length) : 0;
+  const mesesProm = [...new Set(eg.map(r=>String(r.fecha).substring(0,7)).filter(Boolean))];
+  const prom = mesesProm.length ? Math.round(tot / mesesProm.length) : 0;
   const promEl = document.getElementById('e-prom');
   if (promEl) promEl.textContent = fmt(prom);
   // populate filter selects
