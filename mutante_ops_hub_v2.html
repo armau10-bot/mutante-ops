@@ -275,7 +275,7 @@ input:focus,select:focus{outline:none;border-color:var(--ac)}
     <div class="ct">Margen por plato — precio sola</div>
     <div class="cht"><canvas id="ch-marg"></canvas></div>
     <div class="tw" style="margin-top:14px">
-      <table><thead><tr><th>Plato</th><th>Food cost</th><th>Precio venta</th><th>Margen $</th><th>Margen %</th></tr></thead>
+      <table><thead><tr><th>Plato</th><th>Food cost</th><th>Precio venta</th><th>Margen $</th><th>Margen %</th><th></th></tr></thead>
       <tbody id="costos-tbody"></tbody></table>
     </div>
   </div>
@@ -289,7 +289,7 @@ input:focus,select:focus{outline:none;border-color:var(--ac)}
   </div>
   <div class="card">
     <div class="ct">Análisis Prime Cost — costo real por plato</div>
-    <div class="al ai" style="margin-bottom:12px">Distribuye gastos fijos (nómina + arriendo + gas) entre los platos. No reemplaza el food cost — lo complementa para tomar decisiones de precio.</div>
+    <div class="al ai" style="margin-bottom:12px">Distribuye gastos fijos directos (nómina + arriendo + gas + seguridad social) entre los platos. No reemplaza el food cost — lo complementa. Semi-fijos como redes y contabilidad van al PE total pero no al costo por plato.</div>
     <div class="mg">
       <div class="m"><div class="ml">Gastos fijos/mes</div><div class="mv" id="pc-fijos">—</div><div class="ms">Nómina+arriendo+gas</div></div>
       <div class="m"><div class="ml">Ventas prom/mes</div><div class="mv" id="pc-ventas">—</div><div class="ms">Datos reales</div></div>
@@ -323,6 +323,22 @@ input:focus,select:focus{outline:none;border-color:var(--ac)}
   <div class="card">
     <div class="ct">Punto de equilibrio dinámico</div>
     <div class="al ai" style="margin-bottom:14px">¿Cuánto tienes que vender para cubrir todos los costos? Calculado con tus egresos reales. Ajusta el ticket promedio si cambia.</div>
+    <div style="background:rgba(0,0,0,0.03);border-radius:var(--rs);padding:10px 14px;margin-bottom:14px;font-size:12px">
+      <div style="font-weight:500;color:var(--tx);margin-bottom:6px">Gastos incluidos en el cálculo:</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        <span class="tag tg">✓ Nómina (Ximena)</span>
+        <span class="tag tg">✓ Arriendo La Pala</span>
+        <span class="tag tg">✓ Gas</span>
+        <span class="tag tg">✓ Seguridad Social</span>
+        <span class="tag tb">✓ Redes (Felipe)</span>
+        <span class="tag tb">✓ Contabilidad</span>
+        <span class="tag tb">✓ Empaques</span>
+        <span class="tag tgr">✗ Propinas</span>
+        <span class="tag tgr">✗ Eventos/eventuales</span>
+        <span class="tag tgr">✗ Compras ocasionales</span>
+      </div>
+      <div style="font-size:11px;color:var(--hi);margin-top:6px">Verde = fijos directos al prime cost · Azul = semi-fijos al PE · Gris = excluidos</div>
+    </div>
     <div class="mg">
       <div class="m"><div class="ml">Gastos fijos/mes</div><div class="mv" id="pe-fijos">—</div><div class="ms">Nómina + arriendo + gas</div></div>
       <div class="m"><div class="ml">Food cost promedio</div><div class="mv" id="pe-fc-pct">—</div><div class="ms">% sobre precio venta</div></div>
@@ -449,7 +465,22 @@ input:focus,select:focus{outline:none;border-color:var(--ac)}
 
 <script>
 const PAL=['#1a1a18','#378ADD','#1D9E75','#BA7517','#D85A30','#7F77DD','#D4537E','#639922','#E24B4A','#888780'];
-const CATCOL={PROVEEDORES:'#378ADD',NOMINA:'#1D9E75','PAGO ARRIENDO':'#D85A30',SEGUROS:'#7F77DD',IMPUESTOS:'#BA7517'};
+const CATCOL={
+  'PROVEEDORES':     '#2563EB',
+  'NOMINA':          '#16a34a',
+  'ARRIENDO LAPALA': '#D85A30',
+  'PAGO ARRIENDO':   '#D85A30',
+  'GAS':             '#F59E0B',
+  'SEGURIDAD SOCIAL':'#10B981',
+  'REDES':           '#8B5CF6',
+  'CONTABILIDAD':    '#6B7280',
+  'COMPRAS':         '#0891B2',
+  'EMPAQUES':        '#0EA5E9',
+  'PROPINAS':        '#EC4899',
+  'APOYO A EVENTOS': '#F97316',
+  'SERVICIOS ADICIONALES': '#A78BFA',
+  'IMPUESTOS Y TRAMITES':  '#EF4444',
+};
 const CATUI={Hamburguesas:'#378ADD',Bites:'#1D9E75',Perritos:'#D85A30',Bebidas:'#7F77DD',Otros:'#888780'};
 const SK='mutante_v4_url', DK='mutante_v4_data';
 let DATA=null, CH={};
@@ -717,10 +748,15 @@ function renderProvChart(){
 
 function renderPrimeCost(d){
   var eg=d.egresos||[];
-  var nom=eg.filter(function(r){return r.categoria==='NOMINA';}).reduce(function(s,r){return s+r.total;},0);
-  var arr=eg.filter(function(r){return r.categoria==='PAGO ARRIENDO';}).reduce(function(s,r){return s+r.total;},0);
-  var gas=eg.filter(function(r){return r.proveedor.toUpperCase().indexOf('GAS')>=0;}).reduce(function(s,r){return s+r.total;},0);
-  var fijosTotal=nom+arr+gas;
+  // Prime cost: solo fijos operativos directos (nomina + arriendo + gas + seg social)
+  var CATS_PRIME=['NOMINA','ARRIENDO LAPALA','PAGO ARRIENDO','GAS','SEGURIDAD SOCIAL'];
+  var fijosTotal=eg.filter(function(r){
+    return CATS_PRIME.indexOf(r.categoria)>=0;
+  }).reduce(function(s,r){return s+r.total;},0);
+  var gasExtra2=eg.filter(function(r){
+    return CATS_PRIME.indexOf(r.categoria)<0&&r.proveedor&&r.proveedor.toUpperCase().indexOf('GAS')>=0;
+  }).reduce(function(s,r){return s+r.total;},0);
+  fijosTotal+=gasExtra2;
   var mesSet={};
   eg.forEach(function(r){var m=String(r.fecha).substring(0,7);if(m)mesSet[m]=1;});
   var nMeses=Object.keys(mesSet).length;
@@ -994,10 +1030,16 @@ function updateMargenesChart(){
 function recalcPE(){
   if(!DATA)return;
   var eg=DATA.egresos||[];
-  var nom=eg.filter(function(r){return r.categoria==='NOMINA';}).reduce(function(s,r){return s+r.total;},0);
-  var arr=eg.filter(function(r){return r.categoria==='PAGO ARRIENDO';}).reduce(function(s,r){return s+r.total;},0);
-  var gas=eg.filter(function(r){return r.proveedor&&r.proveedor.toUpperCase().indexOf('GAS')>=0;}).reduce(function(s,r){return s+r.total;},0);
-  var fijosTotal=nom+arr+gas;
+  // Gastos fijos operativos: nomina + arriendo + gas + seguridad social + redes + contabilidad
+  var CATS_FIJOS=['NOMINA','ARRIENDO LAPALA','PAGO ARRIENDO','GAS','SEGURIDAD SOCIAL','REDES','CONTABILIDAD','EMPAQUES'];
+  var fijosTotal=eg.filter(function(r){
+    return CATS_FIJOS.indexOf(r.categoria)>=0;
+  }).reduce(function(s,r){return s+r.total;},0);
+  // Also catch GAS by proveedor name in case it's miscategorized
+  var gasExtra=eg.filter(function(r){
+    return CATS_FIJOS.indexOf(r.categoria)<0&&r.proveedor&&r.proveedor.toUpperCase().indexOf('GAS')>=0;
+  }).reduce(function(s,r){return s+r.total;},0);
+  fijosTotal+=gasExtra;
   var mesSet={};
   eg.forEach(function(r){var m=String(r.fecha).substring(0,7);if(m)mesSet[m]=1;});
   var nMeses=Object.keys(mesSet).length||1;
@@ -1057,6 +1099,21 @@ function recalcPE(){
   window._fijosMes=fijosMes;
   window._fcProm=fcProm;
   window._peValue=pe;
+}
+
+function deleteProducto(i){
+  if(PLATOS.length<=1){alert('Debe quedar al menos un plato');return;}
+  var nombre=PLATOS[i].nombre;
+  if(!confirm('¿Eliminar "'+nombre+'" de la carta?'))return;
+  PLATOS.splice(i,1);
+  // Also remove from COMBOS if present
+  var ci=COMBOS.findIndex(function(x){return x.nombre===nombre;});
+  if(ci>=0)COMBOS.splice(ci,1);
+  buildCostosTable();
+  buildCombos();
+  recalcRappi();
+  if(DATA){renderPrimeCost(DATA);recalcPE();}
+  updateMargenesChart();
 }
 
 function addProducto(){
