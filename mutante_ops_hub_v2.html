@@ -300,6 +300,63 @@ input:focus,select:focus{outline:none;border-color:var(--ac)}
     <tbody id="prime-tbody"></tbody></table></div>
     <p style="font-size:10px;color:var(--hi);margin-top:8px">* Fijo/plato = gastos fijos mes ÷ unidades estimadas (ventas÷$35K ticket promedio)</p>
   </div>
+  <div class="card">
+    <div class="ct">Agregar producto nuevo</div>
+    <div class="frow" style="flex-wrap:wrap;gap:8px;align-items:flex-end">
+      <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Nombre</label><input type="text" id="np-nombre" placeholder="Ej: Burger Especial" style="min-width:160px"/></div>
+      <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Categoría</label>
+        <select id="np-cat">
+          <option value="Hamburguesas">Hamburguesas</option>
+          <option value="Bites">Bites</option>
+          <option value="Perritos">Perritos</option>
+          <option value="Bebidas">Bebidas</option>
+          <option value="Otros">Otros</option>
+        </select>
+      </div>
+      <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Food cost ($)</label><input type="number" id="np-costo" placeholder="12000" style="width:100px"/></div>
+      <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Precio venta ($)</label><input type="number" id="np-precio" placeholder="35000" style="width:100px"/></div>
+      <button onclick="addProducto()" style="padding:7px 16px;background:var(--ac);color:var(--bg);border:none;border-radius:var(--rs);font-size:12px;cursor:pointer;font-family:inherit;align-self:flex-end">+ Agregar</button>
+    </div>
+    <p style="font-size:11px;color:var(--hi);margin-top:8px">El producto se agrega a la tabla de márgenes, combos, prime cost y análisis Rappi automáticamente.</p>
+  </div>
+
+  <div class="card">
+    <div class="ct">Punto de equilibrio dinámico</div>
+    <div class="al ai" style="margin-bottom:14px">¿Cuánto tienes que vender para cubrir todos los costos? Calculado con tus egresos reales. Ajusta el ticket promedio si cambia.</div>
+    <div class="mg">
+      <div class="m"><div class="ml">Gastos fijos/mes</div><div class="mv" id="pe-fijos">—</div><div class="ms">Nómina + arriendo + gas</div></div>
+      <div class="m"><div class="ml">Food cost promedio</div><div class="mv" id="pe-fc-pct">—</div><div class="ms">% sobre precio venta</div></div>
+      <div class="m"><div class="ml" style="font-weight:600;color:var(--rd)">Punto de equilibrio</div><div class="mv" id="pe-value" style="color:var(--rd)">—</div><div class="ms">Ventas mínimas/mes</div></div>
+      <div class="m"><div class="ml">Ticket promedio</div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
+          <span style="color:var(--mu);font-size:14px">$</span>
+          <span class="ec" contenteditable="true" id="pe-ticket" oninput="recalcPE()" style="font-size:16px;font-weight:500;min-width:60px">35000</span>
+        </div>
+        <div class="ms">Editable</div>
+      </div>
+      <div class="m"><div class="ml">Unidades/mes para PE</div><div class="mv" id="pe-uds">—</div><div class="ms">Platos a vender</div></div>
+      <div class="m"><div class="ml">Ventas prom. actual</div><div class="mv" id="pe-ventas-act">—</div><div class="ms" id="pe-ventas-sub">—</div></div>
+    </div>
+
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span id="pe-bar-label" style="color:var(--mu)">Progreso vs punto de equilibrio</span>
+        <span id="pe-bar-pct" style="font-weight:500"></span>
+      </div>
+      <div style="height:8px;background:rgba(0,0,0,.08);border-radius:4px;overflow:hidden">
+        <div id="pe-bar" style="height:100%;border-radius:4px;transition:width .5s;width:0%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--hi);margin-top:4px">
+        <span>$0</span><span id="pe-bar-mid"></span><span id="pe-bar-max"></span>
+      </div>
+    </div>
+
+    <div class="card" style="background:rgba(0,0,0,.02);border-style:dashed;margin-bottom:0">
+      <div class="ct">Histórico: ventas vs punto de equilibrio por mes</div>
+      <div class="cht"><canvas id="ch-pe"></canvas></div>
+    </div>
+  </div>
+
   <div class="card"><div class="ct">Simulador de margen</div>
     <div class="frow" style="align-items:flex-end;gap:12px">
       <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Food cost ($)</label><input type="number" id="sfc" placeholder="12000" oninput="simM()" style="width:100px"/></div>
@@ -487,6 +544,7 @@ function renderAll(d){
   renderProveedores(d);
   updateAllCharts(d);
   renderPrimeCost(d);
+  recalcPE();
   recalcRappi();
 }
 
@@ -794,12 +852,44 @@ function initCharts(){
   Chart.defaults.borderColor=dark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.06)';
   Chart.defaults.font.family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
   Chart.defaults.font.size=11;
-  CH.meses=new Chart(document.getElementById('ch-meses'),{type:'bar',data:{labels:[],datasets:[{label:'Ventas',data:[],backgroundColor:PAL[1],borderRadius:4},{label:'Egresos',data:[],backgroundColor:PAL[4],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}},scales:{y:{ticks:{callback:function(v){return'$'+(v/1e6).toFixed(1)+'M';}}}}}});
+  CH.meses=new Chart(document.getElementById('ch-meses'),{
+    type:'bar',
+    data:{labels:[],datasets:[
+      {label:'Ventas',data:[],backgroundColor:PAL[1],borderRadius:4},
+      {label:'Egresos',data:[],backgroundColor:PAL[4],borderRadius:4}
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}},
+        tooltip:{callbacks:{title:function(items){var l=items[0].label;return Array.isArray(l)?l.join(' '):l;}}}
+      },
+      scales:{
+        x:{ticks:{font:{size:9},maxRotation:0}},
+        y:{ticks:{callback:function(v){return '$'+(v/1e6).toFixed(1)+'M';}}}
+      }
+    }
+  });
   CH.cats=new Chart(document.getElementById('ch-cats'),{type:'doughnut',data:{labels:[],datasets:[{data:[],backgroundColor:Object.values(CATCOL)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}}}});
   CH.diasem=new Chart(document.getElementById('ch-diasem'),{type:'bar',data:{labels:['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],datasets:[{data:[0,0,0,0,0,0,0],backgroundColor:[PAL[9],PAL[9],PAL[9],PAL[9],PAL[1],PAL[2],PAL[0]],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return'$'+Math.round(v/1e3)+'K';}}}}}});
   CH.diario=new Chart(document.getElementById('ch-diario'),{type:'line',data:{labels:[],datasets:[{label:'Ventas',data:[],borderColor:PAL[1],backgroundColor:'rgba(55,138,221,0.1)',fill:true,tension:0.3,pointRadius:2,borderWidth:1.5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return'$'+Math.round(v/1e3)+'K';}}}}}});
   CH.ventas=new Chart(document.getElementById('ch-ventas'),{type:'line',data:{labels:[],datasets:[{label:'Ventas',data:[],borderColor:PAL[1],backgroundColor:'rgba(55,138,221,0.1)',fill:true,tension:0.3,pointRadius:2,borderWidth:1.5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return'$'+Math.round(v/1e3)+'K';}}}}}});
   updateMargenesChart();
+  CH.pe=new Chart(document.getElementById('ch-pe'),{
+    type:'bar',
+    data:{labels:[],datasets:[
+      {label:'Ventas reales',data:[],backgroundColor:PAL[1],borderRadius:4,order:2},
+      {label:'Punto de equilibrio',data:[],type:'line',borderColor:'#E24B4A',backgroundColor:'rgba(226,75,74,0.08)',borderWidth:2,borderDash:[6,3],pointRadius:4,pointBackgroundColor:'#E24B4A',fill:true,order:1}
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}},
+        tooltip:{callbacks:{label:function(i){return i.dataset.label+': $'+(i.raw/1e6).toFixed(2)+'M';}}}
+      },
+      scales:{y:{ticks:{callback:function(v){return '$'+(v/1e6).toFixed(1)+'M';}}}}
+    }
+  });
 }
 
 function updateAllCharts(d){
@@ -839,14 +929,16 @@ function updateDashChart(){
   var tE=eD.reduce(function(s,v){return s+v;},0);
   var lbl=document.getElementById('dash-totlbl');
   if(lbl)lbl.textContent=(tV||tE)?'V:'+fmt(tV)+' E:'+fmt(tE):'';
-  // Build labels with variation %
+  // Build labels with variation % for both ventas and egresos
   var chartLabels=labels.map(function(l,i){
-    if(i===0)return l;
-    var prev=vD[i-1];
-    var curr=vD[i];
-    if(!prev||!curr)return l;
-    var pct=((curr-prev)/prev*100).toFixed(1);
-    return l+' ('+(pct>=0?'+':'')+pct+'%)';
+    if(i===0)return [l,'',''];
+    var pV=vD[i-1]||0; var cV=vD[i]||0;
+    var pE=eD[i-1]||0; var cE=eD[i]||0;
+    var varV=pV?((cV-pV)/pV*100).toFixed(1):'—';
+    var varE=pE?((cE-pE)/pE*100).toFixed(1):'—';
+    var labelV=pV?(varV>=0?'▲':'')+varV+'%':'';
+    var labelE=pE?(varE>=0?'▲':'▼')+varE+'%':'';
+    return [l, 'V:'+labelV, 'E:'+labelE];
   });
   CH.meses.data.labels=chartLabels;
   CH.meses.data.datasets[0].data=vD;
@@ -897,6 +989,91 @@ function updateMargenesChart(){
   if(!el)return;
   var data=pl.map(function(p){return((p.precio-p.costo)/p.precio*100);});
   CH.marg=new Chart(el,{type:'bar',data:{labels:pl.map(function(p){return p.nombre.replace('Hamburguesa ','');}),datasets:[{data:data,backgroundColor:data.map(function(v){return v<30?'#E24B4A':v<60?'#BA7517':CATUI[pl[data.indexOf(v)]&&pl[data.indexOf(v)].cat]||'#1D9E75';}),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{max:100,ticks:{callback:function(v){return v+'%';}}}}}});
+}
+
+function recalcPE(){
+  if(!DATA)return;
+  var eg=DATA.egresos||[];
+  var nom=eg.filter(function(r){return r.categoria==='NOMINA';}).reduce(function(s,r){return s+r.total;},0);
+  var arr=eg.filter(function(r){return r.categoria==='PAGO ARRIENDO';}).reduce(function(s,r){return s+r.total;},0);
+  var gas=eg.filter(function(r){return r.proveedor&&r.proveedor.toUpperCase().indexOf('GAS')>=0;}).reduce(function(s,r){return s+r.total;},0);
+  var fijosTotal=nom+arr+gas;
+  var mesSet={};
+  eg.forEach(function(r){var m=String(r.fecha).substring(0,7);if(m)mesSet[m]=1;});
+  var nMeses=Object.keys(mesSet).length||1;
+  var fijosMes=Math.round(fijosTotal/nMeses);
+
+  var platosConDatos=PLATOS.filter(function(p){return p.costo>0&&p.precio>0;});
+  var fcProm=platosConDatos.length?platosConDatos.reduce(function(s,p){return s+(p.costo/p.precio);},0)/platosConDatos.length:0.3;
+
+  var ticketEl=document.getElementById('pe-ticket');
+  var ticket=ticketEl?parseFloat(ticketEl.textContent.replace(/[^0-9]/g,''))||35000:35000;
+
+  // PE = fijos / (1 - food cost %)
+  var margenContribucion=1-fcProm;
+  var pe=margenContribucion>0?Math.round(fijosMes/margenContribucion):0;
+  var uds=ticket>0?Math.round(pe/ticket):0;
+
+  // Ventas promedio actual
+  var mObj=DATA.resumen&&DATA.resumen.ingresosPorMes||{};
+  var mKeys=Object.keys(mObj).filter(function(k){return mObj[k]&&mObj[k].total>0;});
+  var ventasProm=mKeys.length?mKeys.reduce(function(s,k){return s+mObj[k].total;},0)/mKeys.length:0;
+  var superavit=ventasProm-pe;
+  var pctVsPE=pe>0?Math.min(150,Math.round(ventasProm/pe*100)):0;
+
+  // Update metrics
+  var el=document.getElementById('pe-fijos');if(el)el.textContent=fmtF(fijosMes);
+  el=document.getElementById('pe-fc-pct');if(el)el.textContent=(fcProm*100).toFixed(1)+'%';
+  el=document.getElementById('pe-value');if(el)el.textContent=fmtF(pe);
+  el=document.getElementById('pe-uds');if(el)el.textContent=uds+' platos';
+  el=document.getElementById('pe-ventas-act');if(el)el.textContent=fmt(ventasProm);
+  el=document.getElementById('pe-ventas-sub');
+  if(el){
+    if(superavit>0){el.textContent='▲ $'+Math.round(superavit/1e3)+'K sobre PE';el.style.color='var(--gn)';}
+    else{el.textContent='▼ $'+Math.round(Math.abs(superavit)/1e3)+'K bajo PE';el.style.color='var(--rd)';}
+  }
+
+  // Progress bar
+  var bar=document.getElementById('pe-bar');
+  if(bar){
+    bar.style.width=Math.min(100,pctVsPE)+'%';
+    bar.style.background=pctVsPE>=100?'var(--gn)':pctVsPE>=80?'var(--am)':'var(--rd)';
+  }
+  el=document.getElementById('pe-bar-pct');if(el)el.textContent=pctVsPE+'% del PE';
+  el=document.getElementById('pe-bar-mid');if(el)el.textContent=fmtF(Math.round(pe/2));
+  el=document.getElementById('pe-bar-max');if(el)el.textContent=fmtF(pe)+' (PE)';
+
+  // Historical chart
+  if(CH.pe&&mKeys.length>0){
+    var sortedKeys=mKeys.sort();
+    var ventasData=sortedKeys.map(function(k){return mObj[k]&&mObj[k].total||0;});
+    var peData=sortedKeys.map(function(){return pe;});
+    CH.pe.data.labels=sortedKeys;
+    CH.pe.data.datasets[0].data=ventasData;
+    CH.pe.data.datasets[1].data=peData;
+    CH.pe.update();
+  }
+
+  window._fijosMes=fijosMes;
+  window._fcProm=fcProm;
+  window._peValue=pe;
+}
+
+function addProducto(){
+  var nombre=document.getElementById('np-nombre').value.trim();
+  var cat=document.getElementById('np-cat').value;
+  var costo=parseFloat(document.getElementById('np-costo').value)||0;
+  var precio=parseFloat(document.getElementById('np-precio').value)||0;
+  if(!nombre){alert('Escribe el nombre del producto');return;}
+  PLATOS.push({cat:cat,nombre:nombre,costo:costo,precio:precio});
+  buildCostosTable();
+  buildCombos();
+  recalcRappi();
+  if(DATA)renderPrimeCost(DATA);
+  updateMargenesChart();
+  document.getElementById('np-nombre').value='';
+  document.getElementById('np-costo').value='';
+  document.getElementById('np-precio').value='';
 }
 
 function sw(id,el){
