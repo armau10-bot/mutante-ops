@@ -121,8 +121,9 @@ input:focus,select:focus{outline:none;border-color:var(--ac)}
   <p class="pt">Dashboard</p>
   <div class="al ai">🏆 Mundial 2026 activo · Activa promos mundialistas en Rappi</div>
   <div class="mg">
-    <div class="m"><div class="ml">Ventas mar 2025</div><div class="mv" id="dm-mar">—</div><div class="ms">Datos reales</div></div>
-    <div class="m"><div class="ml">Ventas abr 2025</div><div class="mv" id="dm-abr">—</div><div class="ms">Datos reales</div></div>
+    <div class="m"><div class="ml" id="dm-label1">Mes anterior</div><div class="mv" id="dm-mar">—</div><div class="ms" id="dm-sub1">—</div></div>
+    <div class="m"><div class="ml" id="dm-label2">Mes actual</div><div class="mv" id="dm-abr">—</div><div class="ms" id="dm-sub2">—</div></div>
+    <div class="m"><div class="ml">Variación mensual</div><div class="mv" id="dm-var">—</div><div class="ms" id="dm-var-sub">vs mes anterior</div></div>
     <div class="m"><div class="ml">Mejor día</div><div class="mv" id="dm-best">—</div><div class="ms" id="dm-bestf">—</div></div>
     <div class="m"><div class="ml">Meta mensual</div><div class="mv">$20M</div><div class="ms">Bono 10% si supera</div></div>
   </div>
@@ -491,8 +492,38 @@ function renderAll(d){
 
 function renderDash(d){
   var m=d.resumen&&d.resumen.ingresosPorMes||{};
-  document.getElementById('dm-mar').textContent=fmt(m['2025-03']&&m['2025-03'].total||0);
-  document.getElementById('dm-abr').textContent=fmt(m['2025-04']&&m['2025-04'].total||0);
+  // Get last 2 months with data dynamically
+  var keys=Object.keys(m).filter(function(k){return m[k]&&m[k].total>0;}).sort();
+  var mesActual=keys[keys.length-1]||'—';
+  var mesAnterior=keys[keys.length-2]||'—';
+  var vActual=m[mesActual]&&m[mesActual].total||0;
+  var vAnterior=m[mesAnterior]&&m[mesAnterior].total||0;
+  // Labels
+  var l1=document.getElementById('dm-label1');
+  var l2=document.getElementById('dm-label2');
+  if(l1)l1.textContent=mesAnterior!=='—'?mesAnterior:'Mes anterior';
+  if(l2)l2.textContent=mesActual!=='—'?mesActual:'Mes actual';
+  document.getElementById('dm-mar').textContent=fmt(vAnterior);
+  document.getElementById('dm-abr').textContent=fmt(vActual);
+  // Sub labels: dias con venta
+  var s1=document.getElementById('dm-sub1');
+  var s2=document.getElementById('dm-sub2');
+  if(s1)s1.textContent=m[mesAnterior]?m[mesAnterior].dias+' días con venta':'—';
+  if(s2)s2.textContent=m[mesActual]?m[mesActual].dias+' días con venta':'—';
+  // Variation
+  var varEl=document.getElementById('dm-var');
+  var varSub=document.getElementById('dm-var-sub');
+  if(varEl){
+    if(vAnterior>0){
+      var pct=((vActual-vAnterior)/vAnterior*100);
+      var sign=pct>=0?'+':'';
+      varEl.textContent=sign+pct.toFixed(1)+'%';
+      varEl.style.color=pct>=0?'var(--gn)':'var(--rd)';
+      if(varSub)varSub.textContent=(pct>=0?'▲':'▼')+' vs '+mesAnterior;
+    } else {
+      varEl.textContent='—';
+    }
+  }
   if(d.resumen&&d.resumen.mejorDia){
     document.getElementById('dm-best').textContent=fmt(d.resumen.mejorDia.total);
     document.getElementById('dm-bestf').textContent=d.resumen.mejorDia.fecha+' · '+d.resumen.mejorDia.dia;
@@ -808,7 +839,16 @@ function updateDashChart(){
   var tE=eD.reduce(function(s,v){return s+v;},0);
   var lbl=document.getElementById('dash-totlbl');
   if(lbl)lbl.textContent=(tV||tE)?'V:'+fmt(tV)+' E:'+fmt(tE):'';
-  CH.meses.data.labels=labels;
+  // Build labels with variation %
+  var chartLabels=labels.map(function(l,i){
+    if(i===0)return l;
+    var prev=vD[i-1];
+    var curr=vD[i];
+    if(!prev||!curr)return l;
+    var pct=((curr-prev)/prev*100).toFixed(1);
+    return l+' ('+(pct>=0?'+':'')+pct+'%)';
+  });
+  CH.meses.data.labels=chartLabels;
   CH.meses.data.datasets[0].data=vD;
   CH.meses.data.datasets[1].data=eD;
   CH.meses.update();
