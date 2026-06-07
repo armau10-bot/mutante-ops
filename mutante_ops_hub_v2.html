@@ -127,14 +127,23 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
     <div class="m"><div class="ml">Mejor día</div><div class="mv" id="dm-best">—</div><div class="ms" id="dm-best-f">—</div></div>
     <div class="m"><div class="ml">Meta mensual</div><div class="mv">$20M</div><div class="ms">Bono 10% si supera</div></div>
   </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <span class="ctitle" style="margin:0">Ventas vs Egresos por mes</span>
+      <div style="display:flex;gap:6px;align-items:center">
+        <select id="dash-mes-fil" onchange="updateDashChart()" style="font-size:11px;padding:4px 7px">
+          <option value="">Todos los meses</option>
+        </select>
+        <span id="dash-total-label" style="font-size:11px;color:var(--muted)"></span>
+      </div>
+    </div>
+    <div class="ch-tall"><canvas id="ch-meses"></canvas></div>
+  </div>
   <div class="two">
-    <div class="card"><div class="ctitle">Ventas por mes</div><div class="ch"><canvas id="ch-meses"></canvas></div></div>
     <div class="card"><div class="ctitle">Egresos por categoría</div><div class="ch"><canvas id="ch-cats"></canvas></div></div>
+    <div class="card"><div class="ctitle">Promedio por día de la semana</div><div class="ch"><canvas id="ch-diasem"></canvas></div></div>
   </div>
-  <div class="two">
-    <div class="card"><div class="ctitle">Evolución diaria de ventas</div><div class="ch-tall"><canvas id="ch-diario"></canvas></div></div>
-    <div class="card"><div class="ctitle">Promedio por día de la semana (histórico)</div><div class="ch"><canvas id="ch-diasem"></canvas></div></div>
-  </div>
+  <div class="card"><div class="ctitle">Evolución diaria de ventas</div><div class="ch-tall"><canvas id="ch-diario"></canvas></div></div>
 </div>
 
 <!-- VENTAS -->
@@ -162,6 +171,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
   <p class="ptitle">Egresos</p>
   <div class="mg">
     <div class="m"><div class="ml">Total egresos</div><div class="mv" id="e-total">—</div></div>
+    <div class="m"><div class="ml">Promedio mensual</div><div class="mv" id="e-prom">—</div><div class="ms">Por mes con datos</div></div>
     <div class="m"><div class="ml">Proveedores</div><div class="mv" id="e-prov">—</div></div>
     <div class="m"><div class="ml">Nómina</div><div class="mv" id="e-nom">—</div></div>
     <div class="m"><div class="ml">Arriendo</div><div class="mv" id="e-arr">—</div></div>
@@ -169,8 +179,11 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
   <div class="al aw">⚠ Nómina y propinas mezcladas en algunos registros. Separar antes del PyG.</div>
 
   <div class="card">
-    <div class="ctitle">Comparativo egresos por mes y categoría</div>
-    <div class="frow">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <span class="ctitle" style="margin:0">Comparativo egresos por mes y categoría</span>
+      <span id="eg-chart-total" style="font-size:12px;font-weight:500;color:var(--text)"></span>
+    </div>
+    <div class="frow" style="margin-bottom:8px">
       <label>Mes:</label>
       <select id="eg-fil-mes" onchange="renderEgresosChart()"><option value="">Todos</option></select>
       <label>Categoría:</label>
@@ -223,8 +236,15 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
       <button class="btn" onclick="addCxP()">+ Agregar</button>
     </div>
   </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <span class="ctitle" style="margin:0">Gasto por proveedor (histórico)</span>
+      <select id="prov-mes-fil" onchange="renderProvChart()" style="font-size:11px;padding:4px 7px"><option value="">Todos los meses</option></select>
+    </div>
+    <div class="ch-tall"><canvas id="ch-proveedores"></canvas></div>
+  </div>
   <div class="card"><div class="ctitle">Proveedores recurrentes</div>
-    <div class="tw"><table><thead><tr><th>Proveedor</th><th>Qué provee</th><th>Frecuencia</th><th>Contacto</th></tr></thead>
+    <div class="tw"><table><thead><tr><th>Proveedor</th><th>Total pagado</th><th>Qué provee</th><th>Frecuencia</th></tr></thead>
     <tbody id="prov-tbody">
       <tr><td>Gastrologi</td><td>Pollo, tocineta, huevos, solomito</td><td><span class="tag tb">Quincenal</span></td><td>—</td></tr>
       <tr><td>Atlantic</td><td>Wagyu, tarufata, pulpo</td><td><span class="tag tb">Quincenal</span></td><td>—</td></tr>
@@ -380,6 +400,7 @@ function useDemoData() {
   DATA = getDemoData();
   if (!charts.meses) initCharts();
   renderAll(DATA);
+  renderProvChart();
   document.getElementById('sync-label').textContent = 'Modo demo';
 }
 
@@ -471,6 +492,11 @@ function renderEgresos(d) {
   document.getElementById('e-prov').textContent = fmt(eg.filter(r=>r.categoria==='PROVEEDORES').reduce((s,r)=>s+r.total,0));
   document.getElementById('e-nom').textContent = fmt(eg.filter(r=>r.categoria==='NOMINA').reduce((s,r)=>s+r.total,0));
   document.getElementById('e-arr').textContent = fmt(eg.filter(r=>r.categoria==='PAGO ARRIENDO').reduce((s,r)=>s+r.total,0));
+  // Promedio mensual
+  const meses = [...new Set(eg.map(r=>String(r.fecha).substring(0,7)).filter(Boolean))];
+  const prom = meses.length ? Math.round(tot / meses.length) : 0;
+  const promEl = document.getElementById('e-prom');
+  if (promEl) promEl.textContent = fmt(prom);
   // populate filter selects
   const meses = [...new Set(eg.map(r=>String(r.fecha).substring(0,7)))].sort();
   const cats = [...new Set(eg.map(r=>r.categoria))];
@@ -519,53 +545,133 @@ function renderEgresosChart() {
     backgroundColor: CAT_COLORS[cat] || PAL[i % PAL.length],
     borderRadius: 3, borderSkipped: false
   }));
+  const grandTotal = filtered.reduce((s,r)=>s+r.total,0);
+  const totalEl = document.getElementById('eg-chart-total');
+  if (totalEl) totalEl.textContent = grandTotal > 0 ? 'Total: ' + fmtF(grandTotal) : '';
   if (charts.egComp) charts.egComp.destroy();
   charts.egComp = new Chart(document.getElementById('ch-egresos-comp'), {
     type: 'bar',
     data: { labels: meses, datasets },
-    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}}, scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>'$'+Math.round(v/1e6*10)/10+'M'}}}}
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}},
+        tooltip:{callbacks:{footer: items => 'Total mes: ' + fmtF(items.reduce((s,i)=>s+i.raw,0))}}
+      },
+      scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>'$'+Math.round(v/1e6*10)/10+'M'}}}
+    }
   });
 }
 
 function renderProveedores(d) {
   const provs = d.proveedores||[];
-  if (provs.length === 0) return;
-  const catCls = {Pendiente:'ta',Pagado:'tg',Vencido:'tr'};
-  const freqCls = {Semanal:'ta',Quincenal:'tb',Mensual:'tgr',Único:'tgr'};
-  document.getElementById('cxp-tbody').innerHTML = provs.map(p=>`<tr><td>${p.proveedor}</td><td>${p.concepto}</td><td>${fmtF(p.monto)}</td><td>${p.vence}</td><td><span class="tag ${freqCls[p.frecuencia]||'tgr'}">${p.frecuencia||'—'}</span></td><td><span class="tag ${catCls[p.estado]||'tgr'}">${p.estado}</span></td><td><button class="btn" style="font-size:11px;padding:3px 8px" onclick="pagarRow(this)">Pagar</button></td></tr>`).join('');
+  if (provs.length > 0) {
+    const catCls = {Pendiente:'ta',Pagado:'tg',Vencido:'tr'};
+    const freqCls = {Semanal:'ta',Quincenal:'tb',Mensual:'tgr',Único:'tgr'};
+    document.getElementById('cxp-tbody').innerHTML = provs.map(p=>`<tr><td>${p.proveedor}</td><td>${p.concepto}</td><td>${fmtF(p.monto)}</td><td>${p.vence}</td><td><span class="tag ${freqCls[p.frecuencia]||'tgr'}">${p.frecuencia||'—'}</span></td><td><span class="tag ${catCls[p.estado]||'tgr'}">${p.estado}</span></td><td><button class="btn" style="font-size:11px;padding:3px 8px" onclick="pagarRow(this)">Pagar</button></td></tr>`).join('');
+  }
+  renderProvChart();
+}
+
+function renderProvChart() {
+  const eg = DATA?.egresos||[];
+  const filMes = document.getElementById('prov-mes-fil')?.value||'';
+  const filtered = eg.filter(r => !filMes || String(r.fecha).startsWith(filMes));
+  // Aggregate by supplier
+  const byProv = {};
+  filtered.forEach(r => {
+    const p = r.proveedor.trim();
+    if (!byProv[p]) byProv[p] = 0;
+    byProv[p] += r.total;
+  });
+  const sorted = Object.entries(byProv).sort((a,b)=>b[1]-a[1]).slice(0,15);
+  const labels = sorted.map(e=>e[0]);
+  const vals = sorted.map(e=>e[1]);
+  // Populate filter
+  const allMeses = [...new Set(eg.map(r=>String(r.fecha).substring(0,7)))].sort();
+  const sel = document.getElementById('prov-mes-fil');
+  if (sel) {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Todos los meses</option>' + allMeses.map(m=>`<option value="${m}">${m}</option>`).join('');
+    sel.value = cur;
+  }
+  // Update recurrentes table with totals
+  const RECURRENTES = [
+    {nombre:'Gastrologi',provee:'Pollo, tocineta, huevos, solomito',freq:'Quincenal'},
+    {nombre:'Atlantic',provee:'Wagyu, tarufata, pulpo',freq:'Quincenal'},
+    {nombre:'Pan Bred',provee:'Brioche, bao, pan perrito',freq:'Semanal'},
+    {nombre:'Okobi',provee:'Mayonesa japonesa, ajo rostizado',freq:'Mensual'},
+    {nombre:'Freshco Fruver',provee:'Vegetales, frutas',freq:'Semanal'},
+    {nombre:'Mezclum / Proagro',provee:'Hojas frescas, mezclum',freq:'Semanal'},
+    {nombre:'Super Carnes / Steak Market',provee:'Carne americana',freq:'Quincenal'},
+    {nombre:'Coca Cola',provee:'Bebidas',freq:'Mensual'},
+  ];
+  const freqCls2 = {Semanal:'ta',Quincenal:'tb',Mensual:'tgr'};
+  document.getElementById('prov-tbody').innerHTML = RECURRENTES.map(r => {
+    const total = filtered.filter(e=>e.proveedor.toUpperCase().includes(r.nombre.split('/')[0].trim().toUpperCase())).reduce((s,e)=>s+e.total,0);
+    return `<tr><td>${r.nombre}</td><td>${total > 0 ? fmtF(total) : '—'}</td><td>${r.provee}</td><td><span class="tag ${freqCls2[r.freq]||'tgr'}">${r.freq}</span></td></tr>`;
+  }).join('');
+  // Chart
+  if (charts.provs) charts.provs.destroy();
+  if (!document.getElementById('ch-proveedores')) return;
+  charts.provs = new Chart(document.getElementById('ch-proveedores'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets:[{
+        label:'Total pagado',
+        data: vals,
+        backgroundColor: PAL[1],
+        borderRadius: 4
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:i=>' '+fmtF(i.raw)}}},
+      scales:{x:{ticks:{callback:v=>'$'+Math.round(v/1e6*10)/10+'M'}}}
+    }
+  });
 }
 
 // ─── COSTOS TABLE ─────────────────────────────────────────────────────
 function buildCostosTable() {
   const tbody = document.getElementById('costos-tbody');
   tbody.innerHTML = PLATOS.map((p,i) => {
-    const costoCell = p.editable
-      ? `<span class="editable-cost" contenteditable="true" oninput="recalcRow(this,${i})" id="ec-${i}">${p.costo||0}</span>`
-      : fmtF(p.costo);
-    const precioCell = p.editable
-      ? `<span class="editable-cost" contenteditable="true" oninput="recalcRow(this,${i})" id="ep-${i}">${p.precio||0}</span>`
-      : fmtF(p.precio);
-    const mg$ = p.precio && p.costo ? p.precio - p.costo : 0;
-    const mgP = p.precio && p.costo ? ((p.precio-p.costo)/p.precio*100).toFixed(1) : '—';
-    const cls = !p.costo ? 'tgr' : parseFloat(mgP)<30?'tr':parseFloat(mgP)<60?'ta':'tg';
+    const cVal = p.costo || 0;
+    const pVal = p.precio || 0;
+    const mg$ = pVal && cVal ? pVal - cVal : 0;
+    const mgP = pVal && cVal ? ((pVal-cVal)/pVal*100).toFixed(1) : '—';
+    const cls = !cVal ? 'tgr' : parseFloat(mgP)<30?'tr':parseFloat(mgP)<60?'ta':'tg';
     const nota = p.nota ? `<br><span style="font-size:10px;color:var(--amber)">${p.nota}</span>` : '';
-    return `<tr id="crow-${i}"><td>${p.nombre}${nota}</td><td>${costoCell}</td><td>${precioCell}</td><td id="cmg-${i}">${mg$?fmtF(mg$):'—'}</td><td id="cpct-${i}"><span class="tag ${cls}">${mgP !== '—' ? mgP+'%' : '—'}</span></td></tr>`;
+    return `<tr id="crow-${i}">
+      <td>${p.nombre}${nota}</td>
+      <td><span class="editable-cost" contenteditable="true" oninput="recalcRow(this,${i},'c')" id="ec-${i}">${cVal||'—'}</span></td>
+      <td><span class="editable-cost" contenteditable="true" oninput="recalcRow(this,${i},'p')" id="ep-${i}">${pVal||'—'}</span></td>
+      <td id="cmg-${i}">${mg$?fmtF(mg$):'—'}</td>
+      <td id="cpct-${i}"><span class="tag ${cls}">${mgP !== '—' ? mgP+'%' : '—'}</span></td>
+    </tr>`;
   }).join('');
 }
 
-function recalcRow(el, i) {
+function recalcRow(el, i, field) {
   const cEl = document.getElementById(`ec-${i}`);
   const pEl = document.getElementById(`ep-${i}`);
   if (!cEl || !pEl) return;
-  const c = parseFloat(cEl.textContent.replace(/[^0-9.]/g,'')) || 0;
-  const p = parseFloat(pEl.textContent.replace(/[^0-9.]/g,'')) || 0;
-  PLATOS[i].costo = c; PLATOS[i].precio = p;
+  const c = parseFloat(cEl.textContent.replace(/[^0-9.,]/g,'').replace(',','.')) || 0;
+  const p = parseFloat(pEl.textContent.replace(/[^0-9.,]/g,'').replace(',','.')) || 0;
+  PLATOS[i].costo = c;
+  PLATOS[i].precio = p;
+  // Sync to PLATOS_COMBO if same dish exists there
+  const idx = PLATOS_COMBO.findIndex(x => x.nombre === PLATOS[i].nombre);
+  if (idx >= 0) PLATOS_COMBO[idx].costo = c;
   const mg$ = p && c ? p-c : 0;
   const mgP = p && c ? ((p-c)/p*100).toFixed(1) : '—';
   const cls = !c ? 'tgr' : parseFloat(mgP)<30?'tr':parseFloat(mgP)<60?'ta':'tg';
   document.getElementById(`cmg-${i}`).textContent = mg$ ? fmtF(mg$) : '—';
   document.getElementById(`cpct-${i}`).innerHTML = `<span class="tag ${cls}">${mgP !== '—' ? mgP+'%' : '—'}</span>`;
   updateMargenesChart();
+  buildCombos(); // rebuild combos with updated costs
 }
 
 function buildCombos() {
@@ -591,7 +697,7 @@ function initCharts() {
   Chart.defaults.font.family = "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
   Chart.defaults.font.size = 11;
 
-  charts.meses = new Chart(document.getElementById('ch-meses'),{type:'bar',data:{labels:[],datasets:[{label:'Ventas',data:[],backgroundColor:PAL[0],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'$'+(v/1e6).toFixed(1)+'M'}}}}});
+  charts.meses = new Chart(document.getElementById('ch-meses'),{type:'bar',data:{labels:[],datasets:[{label:'Ventas',data:[],backgroundColor:PAL[1],borderRadius:4},{label:'Egresos',data:[],backgroundColor:PAL[4],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}},scales:{y:{ticks:{callback:v=>'$'+(v/1e6).toFixed(1)+'M'}}}}});
 
   charts.cats = new Chart(document.getElementById('ch-cats'),{type:'doughnut',data:{labels:[],datasets:[{data:[],backgroundColor:Object.values(CAT_COLORS)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}}}});
 
@@ -613,11 +719,16 @@ function updateMargenesChart() {
 function updateCharts(d) {
   if (!d?.resumen) return;
   if (!charts.meses || !charts.cats || !charts.diario || !charts.diasem) return;
-  const m = d.resumen.ingresosPorMes||{};
-  const labels = Object.keys(m).sort();
-  charts.meses.data.labels = labels;
-  charts.meses.data.datasets[0].data = labels.map(k=>m[k].total);
-  charts.meses.update();
+
+  // Populate dashboard month filter
+  const mObj = d.resumen.ingresosPorMes||{};
+  const egObj = d.resumen.egresosPorCatMes||{};
+  const allMonths = [...new Set([...Object.keys(mObj), ...Object.keys(egObj)])].sort();
+  const dashSel = document.getElementById('dash-mes-fil');
+  if (dashSel) {
+    dashSel.innerHTML = '<option value="">Todos los meses</option>' + allMonths.map(m=>`<option value="${m}">${m}</option>`).join('');
+  }
+  updateDashChart();
 
   const cats = d.resumen.egresosPorCategoria||{};
   charts.cats.data.labels = Object.keys(cats);
@@ -634,6 +745,29 @@ function updateCharts(d) {
   const order = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
   charts.diasem.data.datasets[0].data = order.map(d=>pds[d]||0);
   charts.diasem.update();
+}
+
+function updateDashChart() {
+  if (!DATA?.resumen || !charts.meses) return;
+  const filMes = document.getElementById('dash-mes-fil')?.value||'';
+  const mObj = DATA.resumen.ingresosPorMes||{};
+  const egCatMes = DATA.resumen.egresosPorCatMes||{};
+  let labels = [...new Set([...Object.keys(mObj), ...Object.keys(egCatMes)])].sort();
+  if (filMes) labels = labels.filter(l=>l===filMes);
+
+  const ventasData = labels.map(l=>mObj[l]?.total||0);
+  const egData = labels.map(l=>Object.values(egCatMes[l]||{}).reduce((s,v)=>s+v,0));
+  const totalV = ventasData.reduce((s,v)=>s+v,0);
+  const totalE = egData.reduce((s,v)=>s+v,0);
+  const lbl = document.getElementById('dash-total-label');
+  if (lbl) lbl.textContent = totalV||totalE ? `Ventas: ${fmt(totalV)} · Egresos: ${fmt(totalE)}` : '';
+
+  charts.meses.data.labels = labels;
+  charts.meses.data.datasets = [
+    {label:'Ventas', data:ventasData, backgroundColor:PAL[1], borderRadius:4},
+    {label:'Egresos', data:egData, backgroundColor:PAL[4], borderRadius:4}
+  ];
+  charts.meses.update();
 }
 
 // ─── DEMO DATA ────────────────────────────────────────────────────────
@@ -685,6 +819,7 @@ function reconectar(){
   document.getElementById('api-url-input').value = localStorage.getItem(SK)||'';
   document.getElementById('setup-overlay').style.display = 'flex';
 }
+function sw(id,el){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('panel-'+id).classList.add('active');
