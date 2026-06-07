@@ -370,7 +370,7 @@ window.onload = () => {
 
 function saveApiUrl() {
   const url = document.getElementById('api-url-input').value.trim();
-  if (!url.startsWith('https://script.google.com')) { alert('URL inválida'); return; }
+  if (!url) { alert('Pega la URL del script'); return; }
   localStorage.setItem(SK, url);
   document.getElementById('setup-overlay').style.display = 'none';
   syncData();
@@ -378,6 +378,7 @@ function saveApiUrl() {
 function useDemoData() {
   document.getElementById('setup-overlay').style.display = 'none';
   DATA = getDemoData();
+  if (!charts.meses) initCharts();
   renderAll(DATA);
   document.getElementById('sync-label').textContent = 'Modo demo';
 }
