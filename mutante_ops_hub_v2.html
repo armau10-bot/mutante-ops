@@ -219,22 +219,20 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 <div class="panel" id="panel-proveedores">
   <p class="ptitle">Proveedores / CxP</p>
   <div class="al ai">Crea la hoja "PROVEEDORES" en tu Sheet con columnas: Proveedor · Concepto · Monto · Vence · Estado · Frecuencia · Contacto</div>
-  <div class="card"><div class="ctitle">Cuentas por pagar (desde Drive)</div>
-    <div class="tw"><table><thead><tr><th>Proveedor</th><th>Concepto</th><th>Monto</th><th>Vence</th><th>Frecuencia</th><th>Estado</th><th></th></tr></thead>
+  <div class="card">
+    <div class="ctitle">Cuentas por pagar (desde Drive)</div>
+    <div class="al ai" style="margin-bottom:10px">Los datos se leen directamente de la hoja PROVEEDORES en tu Sheet. El saldo descuenta el abono parcial si aplica.</div>
+    <div class="tw"><table><thead><tr>
+      <th>Proveedor</th><th>Valor a pagar</th><th>Abono</th><th>Saldo</th>
+      <th>Nº Cuenta</th><th>Tipo</th><th>Vencimiento</th><th>Observaciones</th><th>Estado</th>
+    </tr></thead>
     <tbody id="cxp-tbody">
-      <tr><td>Gastrologi</td><td>Carnes quincenal</td><td>~$1,500,000</td><td>Jun 15</td><td><span class="tag tb">Quincenal</span></td><td><span class="tag ta">Pendiente</span></td><td><button class="btn" style="font-size:11px;padding:3px 8px" onclick="pagarRow(this)">Pagar</button></td></tr>
-      <tr><td>Atlantic</td><td>Wagyu + insumos</td><td>~$600,000</td><td>Jun 15</td><td><span class="tag tb">Quincenal</span></td><td><span class="tag ta">Pendiente</span></td><td><button class="btn" style="font-size:11px;padding:3px 8px" onclick="pagarRow(this)">Pagar</button></td></tr>
-      <tr><td>Pan Bred</td><td>Panes semana</td><td>~$350,000</td><td>Jun 12</td><td><span class="tag ta">Semanal</span></td><td><span class="tag ta">Pendiente</span></td><td><button class="btn" style="font-size:11px;padding:3px 8px" onclick="pagarRow(this)">Pagar</button></td></tr>
-      <tr><td>Felipe Redes</td><td>Mayo pendiente</td><td>$400,000</td><td>Vencido</td><td><span class="tag tgr">Mensual</span></td><td><span class="tag tr">Vencido</span></td><td><button class="btn" style="font-size:11px;padding:3px 8px" onclick="pagarRow(this)">Pagar</button></td></tr>
+      <tr><td>GASTROLOGI</td><td>$2,724,973</td><td>—</td><td>$2,724,973</td><td>43090869893</td><td>AHORROS</td><td>—</td><td>—</td><td><span class="tag ta">Pendiente</span></td></tr>
+      <tr><td>PAN BRED</td><td>$260,200</td><td>—</td><td>$260,200</td><td>2670000875</td><td>AHORROS</td><td>—</td><td>—</td><td><span class="tag ta">Pendiente</span></td></tr>
+      <tr><td>ATLANTIC</td><td>$1,101,820</td><td>—</td><td>$1,101,820</td><td>2123579115</td><td>CORRIENTE</td><td>—</td><td>—</td><td><span class="tag ta">Pendiente</span></td></tr>
+      <tr><td>EMPAQUES</td><td>$1,149,540</td><td>—</td><td>$1,149,540</td><td>33100007001</td><td>AHORROS</td><td>—</td><td>50% adelanto</td><td><span class="tag ta">Pendiente</span></td></tr>
     </tbody></table></div>
-    <div class="ir">
-      <input type="text" id="cp-p" placeholder="Proveedor" style="min-width:110px"/>
-      <input type="text" id="cp-c" placeholder="Concepto" style="min-width:100px"/>
-      <input type="text" id="cp-m" placeholder="Monto" style="min-width:80px"/>
-      <input type="text" id="cp-v" placeholder="Vence" style="min-width:70px"/>
-      <select id="cp-f"><option>Semanal</option><option>Quincenal</option><option>Mensual</option><option>Único</option></select>
-      <button class="btn" onclick="addCxP()">+ Agregar</button>
-    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">Actualiza directamente en la hoja PROVEEDORES del Sheet → presiona "Actualizar desde Drive"</div>
   </div>
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
@@ -566,9 +564,19 @@ function renderEgresosChart() {
 function renderProveedores(d) {
   const provs = d.proveedores||[];
   if (provs.length > 0) {
-    const catCls = {Pendiente:'ta',Pagado:'tg',Vencido:'tr'};
-    const freqCls = {Semanal:'ta',Quincenal:'tb',Mensual:'tgr',Único:'tgr'};
-    document.getElementById('cxp-tbody').innerHTML = provs.map(p=>`<tr><td>${p.proveedor}</td><td>${p.concepto}</td><td>${fmtF(p.monto)}</td><td>${p.vence}</td><td><span class="tag ${freqCls[p.frecuencia]||'tgr'}">${p.frecuencia||'—'}</span></td><td><span class="tag ${catCls[p.estado]||'tgr'}">${p.estado}</span></td><td><button class="btn" style="font-size:11px;padding:3px 8px" onclick="pagarRow(this)">Pagar</button></td></tr>`).join('');
+    const stCls = {Pagado:'tg',Abono:'tb',Pendiente:'ta'};
+    document.getElementById('cxp-tbody').innerHTML = provs.map(p=>`
+      <tr>
+        <td><strong>${p.proveedor}</strong></td>
+        <td>${fmtF(p.valorAPagar)}</td>
+        <td>${p.valorAbono ? fmtF(p.valorAbono) : '—'}</td>
+        <td>${p.saldo > 0 ? fmtF(p.saldo) : '<span class="tag tg">Pagado</span>'}</td>
+        <td style="font-size:11px;color:var(--hint)">${p.numeroCuenta||'—'}</td>
+        <td><span class="tag tgr">${p.tipoCuenta||'—'}</span></td>
+        <td>${p.vencimiento||'—'}</td>
+        <td style="font-size:11px">${p.observaciones||'—'}</td>
+        <td><span class="tag ${stCls[p.estado]||'ta'}">${p.estado}</span></td>
+      </tr>`).join('');
   }
   renderProvChart();
 }
