@@ -300,7 +300,7 @@ input:focus,select:focus{outline:none;border-color:var(--ac)}
     <div class="ct">Análisis Prime Cost — costo real por plato</div>
     <div class="al ai" style="margin-bottom:12px">Distribuye gastos fijos directos (nómina + arriendo + gas + seguridad social) entre los platos. No reemplaza el food cost — lo complementa. Semi-fijos como redes y contabilidad van al PE total pero no al costo por plato.</div>
     <div class="mg">
-      <div class="m"><div class="ml">Gastos fijos/mes</div><div class="mv" id="pc-fijos">—</div><div class="ms">Nómina+arriendo+gas</div></div>
+      <div class="m"><div class="ml">Gastos fijos/mes</div><div class="mv" id="pc-fijos">—</div><div class="ms">Ver desglose abajo</div></div>
       <div class="m"><div class="ml">Ventas prom/mes</div><div class="mv" id="pc-ventas">—</div><div class="ms">Datos reales</div></div>
       <div class="m"><div class="ml">% Fijos / ventas</div><div class="mv" id="pc-pct">—</div><div class="ms">Meta: &lt;35%</div></div>
       <div class="m"><div class="ml">Prime Cost estim.</div><div class="mv" id="pc-prime">—</div><div class="ms">Food+labor. Meta:&lt;60%</div></div>
@@ -361,6 +361,14 @@ input:focus,select:focus{outline:none;border-color:var(--ac)}
       </div>
       <div class="m"><div class="ml">Unidades/mes para PE</div><div class="mv" id="pe-uds">—</div><div class="ms">Platos a vender</div></div>
       <div class="m"><div class="ml">Ventas prom. actual</div><div class="mv" id="pe-ventas-act">—</div><div class="ms" id="pe-ventas-sub">—</div></div>
+    </div>
+
+    <div id="pe-desglose" style="background:rgba(0,0,0,0.03);border-radius:var(--rs);padding:12px 14px;margin-bottom:14px;font-size:12px">
+      <div style="font-weight:500;color:var(--tx);margin-bottom:8px">Desglose gastos fijos incluidos en el PE:</div>
+      <div id="pe-desglose-rows" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px"></div>
+      <div style="margin-top:8px;padding-top:8px;border-top:.5px solid var(--b);display:flex;justify-content:space-between;font-weight:600">
+        <span>Total fijos/mes</span><span id="pe-desglose-total" style="color:var(--rd)">—</span>
+      </div>
     </div>
 
     <div style="margin-bottom:10px">
@@ -1197,18 +1205,60 @@ function recalcPE(){
   var eg=DATA.egresos||[];
   // Gastos fijos operativos: nomina + arriendo + gas + seguridad social + redes + contabilidad
   var CATS_FIJOS=['NOMINA','ARRIENDO LAPALA','PAGO ARRIENDO','GAS','SEGURIDAD SOCIAL','REDES','CONTABILIDAD','EMPAQUES'];
-  var fijosTotal=eg.filter(function(r){
-    return CATS_FIJOS.indexOf(r.categoria)>=0;
-  }).reduce(function(s,r){return s+r.total;},0);
-  // Also catch GAS by proveedor name in case it's miscategorized
-  var gasExtra=eg.filter(function(r){
+  var CATS_FIJOS_LABELS={
+    'NOMINA':'Nómina (Ximena)',
+    'ARRIENDO LAPALA':'Arriendo La Pala',
+    'PAGO ARRIENDO':'Arriendo La Pala',
+    'GAS':'Gas',
+    'SEGURIDAD SOCIAL':'Seguridad Social',
+    'REDES':'Redes (Felipe)',
+    'CONTABILIDAD':'Contabilidad',
+    'EMPAQUES':'Empaques'
+  };
+  // Sum by category
+  var porCat={};
+  eg.forEach(function(r){
+    if(CATS_FIJOS.indexOf(r.categoria)>=0){
+      var label=CATS_FIJOS_LABELS[r.categoria]||r.categoria;
+      if(!porCat[label])porCat[label]=0;
+      porCat[label]+=r.total;
+    }
+  });
+  // Also catch GAS by proveedor name
+  eg.filter(function(r){
     return CATS_FIJOS.indexOf(r.categoria)<0&&r.proveedor&&r.proveedor.toUpperCase().indexOf('GAS')>=0;
-  }).reduce(function(s,r){return s+r.total;},0);
-  fijosTotal+=gasExtra;
+  }).forEach(function(r){
+    if(!porCat['Gas'])porCat['Gas']=0;
+    porCat['Gas']+=r.total;
+  });
+  var fijosTotal=Object.values(porCat).reduce(function(s,v){return s+v;},0);
   var mesSet={};
   eg.forEach(function(r){var m=String(r.fecha).substring(0,7);if(m)mesSet[m]=1;});
   var nMeses=Object.keys(mesSet).length||1;
   var fijosMes=Math.round(fijosTotal/nMeses);
+
+  // Populate desglose breakdown
+  var desgloseEl=document.getElementById('pe-desglose-rows');
+  if(desgloseEl){
+    var COLORES={'Nómina (Ximena)':'#16a34a','Arriendo La Pala':'#D85A30','Gas':'#F59E0B','Seguridad Social':'#10B981','Redes (Felipe)':'#8B5CF6','Contabilidad':'#6B7280','Empaques':'#0EA5E9'};
+    var rows=Object.entries(porCat).map(function(e){
+      var label=e[0], total=e[1], promMes=nMeses?Math.round(total/nMeses):0;
+      var col=COLORES[label]||'#888';
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 8px;background:var(--card);border-radius:6px;border:.5px solid var(--b)">'
+        +'<div style="display:flex;align-items:center;gap:6px">'
+          +'<div style="width:8px;height:8px;border-radius:50%;background:'+col+'"></div>'
+          +'<span style="color:var(--mu)">'+label+'</span>'
+        +'</div>'
+        +'<div style="text-align:right">'
+          +'<span style="font-weight:500;color:var(--tx)">'+fmtF(promMes)+'</span>'
+          +'<span style="color:var(--hi);font-size:10px">/mes</span>'
+        +'</div>'
+      +'</div>';
+    });
+    desgloseEl.innerHTML=rows.join('');
+  }
+  var desgloseTotalEl=document.getElementById('pe-desglose-total');
+  if(desgloseTotalEl)desgloseTotalEl.textContent=fmtF(fijosMes);
 
   var platosConDatos=PLATOS.filter(function(p){return p.costo>0&&p.precio>0;});
   // Food cost % se calcula sobre precio NETO (después de ipoconsumo)
