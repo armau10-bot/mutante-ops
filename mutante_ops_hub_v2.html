@@ -399,7 +399,7 @@ input:focus,select:focus{outline:none;border-color:var(--ac)}
 <!-- RAPPI -->
 <div class="panel" id="panel-rappi">
   <p class="pt">Análisis Rappi</p>
-  <div class="al ai">Edita precio Rappi y % de margen objetivo por producto. El precio objetivo se calcula automáticamente. Ipoconsumo incluido en todos los cálculos.</div>
+  <div class="al ai">Precio carta es fijo. Define el % de margen que quieres lograr en Rappi y la columna <b>Precio Rappi objetivo</b> te dice a qué precio configurarlo en la app.</div>
   <div class="mg">
     <div class="m">
       <div class="ml">Comisión Rappi (%)</div>
@@ -417,53 +417,49 @@ input:focus,select:focus{outline:none;border-color:var(--ac)}
         <input type="checkbox" id="rappi-prime" onchange="recalcRappi()" style="width:16px;height:16px"/>
         <label for="rappi-prime" style="font-size:12px;color:var(--mu)">Sí, incluir</label>
       </div>
-      <div class="ms" id="rappi-prime-val">—</div>
+      <div class="ms" id="rappi-prime-val">No incluido</div>
     </div>
-    <div class="m"><div class="ml">Margen promedio Rappi</div><div class="mv" id="rappi-avg-mg">—</div><div class="ms">Individuales s/combo</div></div>
+    <div class="m"><div class="ml">Margen promedio actual</div><div class="mv" id="rappi-avg-mg">—</div><div class="ms">Con precio carta en Rappi</div></div>
+  </div>
+
+  <div style="background:rgba(24,95,165,0.06);border:.5px solid rgba(24,95,165,0.2);border-radius:var(--rs);padding:10px 16px;margin-bottom:14px;font-size:12px;color:#185fa5">
+    <strong>Cómo usar:</strong> La columna <em>% Margen deseado</em> es editable — escribe el % que quieres lograr. El <em>Precio objetivo Rappi</em> se calcula para que después de ipoconsumo, comisión y empaque quede ese margen. Ese es el precio que configuras en Rappi.
   </div>
 
   <div class="card">
     <div class="ct">Hamburguesas &amp; Perritos — individuales</div>
-    <div class="tw">
-      <table>
-        <thead><tr><th>Plato</th><th>Food cost</th><th>Precio Rappi</th><th>−Ipoc</th><th>−Comisión</th><th>−Empaque</th><th>Margen $</th><th>Margen %</th><th>% Obj.</th><th>Precio obj.</th></tr></thead>
-        <tbody id="rappi-ind"></tbody>
-      </table>
-    </div>
+    <div class="tw"><table>
+      <thead><tr><th>Plato</th><th>Food cost</th><th>Precio carta</th><th>Margen actual %</th><th>% Margen deseado</th><th>Precio objetivo Rappi</th><th>Comisión</th><th>Empaque</th><th>Margen $ (objetivo)</th></tr></thead>
+      <tbody id="rappi-ind"></tbody>
+    </table></div>
   </div>
 
   <div class="card">
-    <div class="ct">Combos con papas normales (+$10.000 precio sugerido)</div>
-    <div class="tw">
-      <table>
-        <thead><tr><th>Combo</th><th>Costo total</th><th>Precio Rappi</th><th>−Ipoc</th><th>−Comisión</th><th>−Empaque</th><th>Margen $</th><th>Margen %</th><th>% Obj.</th><th>Precio obj.</th></tr></thead>
-        <tbody id="rappi-combos-n"></tbody>
-      </table>
-    </div>
+    <div class="ct">Combos con papas normales</div>
+    <div class="tw"><table>
+      <thead><tr><th>Combo</th><th>Costo total</th><th>Precio carta combo</th><th>Margen actual %</th><th>% Margen deseado</th><th>Precio objetivo Rappi</th><th>Comisión</th><th>Empaque</th><th>Margen $ (objetivo)</th></tr></thead>
+      <tbody id="rappi-combos-n"></tbody>
+    </table></div>
   </div>
 
   <div class="card">
-    <div class="ct">Combos con papas trufadas (+$13.000 precio sugerido)</div>
-    <div class="tw">
-      <table>
-        <thead><tr><th>Combo</th><th>Costo total</th><th>Precio Rappi</th><th>−Ipoc</th><th>−Comisión</th><th>−Empaque</th><th>Margen $</th><th>Margen %</th><th>% Obj.</th><th>Precio obj.</th></tr></thead>
-        <tbody id="rappi-combos-t"></tbody>
-      </table>
-    </div>
+    <div class="ct">Combos con papas trufadas</div>
+    <div class="tw"><table>
+      <thead><tr><th>Combo</th><th>Costo total</th><th>Precio carta combo</th><th>Margen actual %</th><th>% Margen deseado</th><th>Precio objetivo Rappi</th><th>Comisión</th><th>Empaque</th><th>Margen $ (objetivo)</th></tr></thead>
+      <tbody id="rappi-combos-t"></tbody>
+    </table></div>
   </div>
 
   <div class="card">
-    <div class="ct">Bites &amp; bebidas</div>
-    <div class="tw">
-      <table>
-        <thead><tr><th>Producto</th><th>Food cost</th><th>Precio Rappi</th><th>−Ipoc</th><th>−Comisión</th><th>−Empaque</th><th>Margen $</th><th>Margen %</th><th>% Obj.</th><th>Precio obj.</th></tr></thead>
-        <tbody id="rappi-bites"></tbody>
-      </table>
-    </div>
+    <div class="ct">Bites &amp; Bebidas</div>
+    <div class="tw"><table>
+      <thead><tr><th>Producto</th><th>Food cost</th><th>Precio carta</th><th>Margen actual %</th><th>% Margen deseado</th><th>Precio objetivo Rappi</th><th>Comisión</th><th>Empaque</th><th>Margen $ (objetivo)</th></tr></thead>
+      <tbody id="rappi-bites"></tbody>
+    </table></div>
   </div>
 
   <div class="card">
-    <div class="ct">Gráfico — margen % por producto en Rappi</div>
+    <div class="ct">Margen % actual vs objetivo por producto</div>
     <div class="cht"><canvas id="ch-rappi"></canvas></div>
   </div>
 </div>
@@ -843,113 +839,128 @@ function recalcRappi(){
   var empEl=document.getElementById('rappi-empaque');
   var primeChk=document.getElementById('rappi-prime');
   if(!pctEl||!empEl)return;
-  var pct=parseFloat(pctEl.textContent)||15;
-  var emp=parseFloat(empEl.textContent)||1500;
+  var comPct=parseFloat(pctEl.textContent)||15;   // comisión %
+  var emp=parseFloat(empEl.textContent)||1500;      // empaque $
   var inclPrime=primeChk&&primeChk.checked;
   var primeCosto=window._primeCostPorPlato||0;
   var pvEl=document.getElementById('rappi-prime-val');
   if(pvEl)pvEl.textContent=inclPrime?'+'+fmtF(primeCosto)+' por plato':'No incluido';
 
-  function rappiRow(nombre, foodCost, precioCartaDefault, idx, seccion){
-    // Get editable precio Rappi
-    var prId='rpr-'+seccion+'-'+idx;
-    var mgId='rmg-'+seccion+'-'+idx;
-    var prEl=document.getElementById(prId);
-    var mgEl=document.getElementById(mgId);
-    var precioRappi=prEl?parseFloat(prEl.textContent)||precioCartaDefault:precioCartaDefault;
-    var mgObj=mgEl?parseFloat(mgEl.textContent):null;
+  // ── Función que construye una fila
+  // foodCost: costo ingredientes
+  // precioCartaBase: precio de la carta (fijo, referencia)
+  // seccion: string para prefijo de IDs
+  // idx: número de fila
+  function rappiRow(nombre, foodCost, precioCartaBase, seccion, idx){
+    var mgObjId='rmgo-'+seccion+'-'+idx;
+    var mgObjEl=document.getElementById(mgObjId);
 
-    var ipocAmt=Math.round(precioRappi*IPOC_RATE);
-    var precioNeto=precioRappi-ipocAmt;
-    var comision=Math.round(precioRappi*(pct/100));
+    // Margen actual: sobre precio neto de carta (post ipoconsumo)
+    var precioNeto=Math.round(precioCartaBase*(1-IPOC_RATE));
+    var ipocCarta=Math.round(precioCartaBase*IPOC_RATE);
     var extraPrime=inclPrime&&foodCost?primeCosto:0;
-    var mgNeto=foodCost?precioNeto-foodCost-comision-emp-extraPrime:0;
-    var mgPct=precioNeto&&foodCost?((mgNeto/precioNeto)*100).toFixed(1):'—';
+    var comisionCarta=Math.round(precioCartaBase*(comPct/100));
+    var mgActualAmt=foodCost?precioNeto-foodCost-comisionCarta-emp-extraPrime:0;
+    var mgActualPct=precioNeto&&foodCost?((mgActualAmt/precioNeto)*100).toFixed(1):'—';
 
-    // Precio objetivo
-    var precioObj='—';
-    if(mgObj!==null&&foodCost&&!isNaN(mgObj)){
-      var denom=1-(mgObj/100)-(pct/100)-IPOC_RATE;
-      if(denom>0){
-        precioObj=fmtF(Math.round((foodCost+emp+extraPrime)/denom));
+    // Margen deseado: default = margen actual, editable
+    var mgDeseado=mgObjEl?parseFloat(mgObjEl.textContent):parseFloat(mgActualPct)||30;
+    if(isNaN(mgDeseado))mgDeseado=parseFloat(mgActualPct)||30;
+
+    // Precio objetivo Rappi:
+    // Queremos: mgDeseado% = (precioNeto_obj - foodCost - comision_obj - emp - prime) / precioNeto_obj
+    // precioNeto_obj = precioRappi_obj * (1 - IPOC_RATE)
+    // comision_obj = precioRappi_obj * comPct/100
+    // Despejando precioRappi_obj:
+    // precioNeto_obj - foodCost - precioRappi_obj*(comPct/100) - emp - prime = mgDeseado/100 * precioNeto_obj
+    // precioRappi_obj*(1-IPOC_RATE) - precioRappi_obj*(comPct/100) - foodCost - emp - prime = mgDeseado/100 * precioRappi_obj*(1-IPOC_RATE)
+    // precioRappi_obj * [(1-IPOC_RATE) - comPct/100 - mgDeseado/100*(1-IPOC_RATE)] = foodCost + emp + prime
+    // precioRappi_obj * [(1-IPOC_RATE)*(1 - mgDeseado/100) - comPct/100] = foodCost + emp + prime
+    var precioObjRappi='—';
+    var mgObjAmt='—';
+    var comObjStr='—';
+    if(foodCost){
+      var denom=(1-IPOC_RATE)*(1-mgDeseado/100)-(comPct/100);
+      if(denom>0.01){
+        var pObjRaw=Math.ceil((foodCost+emp+extraPrime)/denom/100)*100; // redondear a centena
+        precioObjRappi=fmtF(pObjRaw);
+        var pObjNeto=Math.round(pObjRaw*(1-IPOC_RATE));
+        var comObj=Math.round(pObjRaw*(comPct/100));
+        mgObjAmt=fmtF(Math.round(pObjNeto-foodCost-comObj-emp-extraPrime));
+        comObjStr=fmtF(comObj);
       } else {
-        precioObj='Inviable';
+        precioObjRappi='Inviable';
       }
     }
 
-    // Default mgObj = margen carta post-ipoconsumo
-    var pCartaNeto=Math.round(precioCartaDefault*(1-IPOC_RATE));
-    var mgCartaDef=pCartaNeto&&foodCost?((pCartaNeto-foodCost)/pCartaNeto*100).toFixed(1):30;
-
-    var cls=!foodCost?'tgr':parseFloat(mgPct)<0?'tr':parseFloat(mgPct)<20?'tr':parseFloat(mgPct)<40?'ta':'tg';
-    var noDataTd=!foodCost?'<td colspan="4" style="color:var(--hi);font-size:11px">Sin costeo — ingresa food cost en Costos y Márgenes</td>':'';
+    var clsAct=!foodCost?'tgr':parseFloat(mgActualPct)<0?'tr':parseFloat(mgActualPct)<25?'tr':parseFloat(mgActualPct)<45?'ta':'tg';
 
     return '<tr>'
-      +'<td>'+nombre+'</td>'
-      +'<td>'+(foodCost?fmtF(foodCost):'—')+'</td>'
-      +'<td><span class="ec" contenteditable="true" id="'+prId+'" oninput="recalcRappi()" style="min-width:55px">'+Math.round(precioRappi)+'</span></td>'
-      +'<td style="color:#991b1b;font-size:11px">−'+fmtF(ipocAmt)+'</td>'
-      +(foodCost?
-        '<td style="color:var(--rd)">−'+fmtF(comision)+'</td>'
-        +'<td style="color:var(--am)">−'+fmtF(emp)+'</td>'
-        +'<td style="'+(mgNeto<0?'color:var(--rd)':'font-weight:500')+'">'+fmtF(Math.round(mgNeto))+'</td>'
-        +'<td><span class="tag '+cls+'">'+(mgPct!=='—'?mgPct+'%':'—')+'</span></td>'
-        +'<td><span class="ec" contenteditable="true" id="'+mgId+'" oninput="recalcRappi()" style="min-width:35px;color:#185fa5">'+mgCartaDef+'</span>%</td>'
-        +'<td style="font-weight:500;color:#185fa5">'+precioObj+'</td>'
-        :noDataTd)
+      +'<td style="font-weight:500">'+nombre+'</td>'
+      +'<td>'+(foodCost?fmtF(foodCost):'<span style="color:var(--hi)">Sin costeo</span>')+'</td>'
+      +'<td>'+fmtF(precioCartaBase)+'<br><span style="font-size:10px;color:#991b1b">−'+fmtF(ipocCarta)+' ipoc → neto '+fmtF(precioNeto)+'</span></td>'
+      +'<td><span class="tag '+clsAct+'">'+(mgActualPct!=='—'?mgActualPct+'%':'—')+'</span></td>'
+      +'<td style="font-weight:500;color:#185fa5">'
+        +(foodCost?'<span class="ec" contenteditable="true" id="'+mgObjId+'" oninput="recalcRappi()" style="min-width:35px;color:#185fa5;font-weight:600">'+mgDeseado.toFixed(1)+'</span>%':'—')
+      +'</td>'
+      +'<td style="font-weight:600;color:#185fa5;font-size:13px">'+precioObjRappi+'</td>'
+      +'<td style="color:var(--rd);font-size:11px">'+(foodCost&&precioObjRappi!=='—'&&precioObjRappi!=='Inviable'?'−'+comObjStr:'—')+'</td>'
+      +'<td style="color:var(--am);font-size:11px">'+(foodCost?'−'+fmtF(emp):'—')+'</td>'
+      +'<td style="font-size:11px">'+(foodCost?mgObjAmt:'—')+'</td>'
       +'</tr>';
   }
 
-  // ── INDIVIDUALES: Hamburguesas + Perritos
+  // ── INDIVIDUALES
   var IND_CATS=['Hamburguesas','Perritos'];
-  var indPlatos=PLATOS.filter(function(p){return IND_CATS.indexOf(p.cat)>=0;});
-  var indRows=indPlatos.map(function(p,i){return rappiRow(p.nombre,p.costo,p.precio,i,'ind');});
   var indEl=document.getElementById('rappi-ind');
-  if(indEl)indEl.innerHTML=indRows.join('');
+  if(indEl){
+    var rows=PLATOS.filter(function(p){return IND_CATS.indexOf(p.cat)>=0;})
+      .map(function(p,i){return rappiRow(p.nombre,p.costo,p.precio,'ind',i);});
+    indEl.innerHTML=rows.join('');
+  }
 
   // ── COMBOS PAPAS NORMALES
-  var comboNRows=COMBOS.map(function(p,i){
-    var costoCombo=p.costo+PAPAS_N_COST;
-    var precioDefault=p.pN||Math.round(p.costo*2+PAPAS_N_COST+6000);
-    return rappiRow(p.nombre+' + Papas',costoCombo,precioDefault,i,'cn');
-  });
   var cnEl=document.getElementById('rappi-combos-n');
-  if(cnEl)cnEl.innerHTML=comboNRows.join('');
+  if(cnEl){
+    var rows=COMBOS.map(function(p,i){
+      return rappiRow(p.nombre+' + Papas normales', p.costo+PAPAS_N_COST, p.pN, 'cn', i);
+    });
+    cnEl.innerHTML=rows.join('');
+  }
 
   // ── COMBOS PAPAS TRUFADAS
-  var comboTRows=COMBOS.map(function(p,i){
-    var costoCombo=p.costo+PAPAS_T_COST;
-    var precioDefault=p.pT||Math.round(p.costo*2+PAPAS_T_COST+9000);
-    return rappiRow(p.nombre+' + P.Trufadas',costoCombo,precioDefault,i,'ct');
-  });
   var ctEl=document.getElementById('rappi-combos-t');
-  if(ctEl)ctEl.innerHTML=comboTRows.join('');
+  if(ctEl){
+    var rows=COMBOS.map(function(p,i){
+      return rappiRow(p.nombre+' + Papas trufadas', p.costo+PAPAS_T_COST, p.pT, 'ct', i);
+    });
+    ctEl.innerHTML=rows.join('');
+  }
 
   // ── BITES & BEBIDAS
-  var BITE_CATS=['Bites','Bebidas','Otros'];
-  var bitePlatos=PLATOS.filter(function(p){return BITE_CATS.indexOf(p.cat)>=0;});
-  var biteRows=bitePlatos.map(function(p,i){return rappiRow(p.nombre,p.costo,p.precio,i,'bt');});
   var btEl=document.getElementById('rappi-bites');
-  if(btEl)btEl.innerHTML=biteRows.join('');
+  if(btEl){
+    var BITE_CATS=['Bites','Bebidas','Otros'];
+    var rows=PLATOS.filter(function(p){return BITE_CATS.indexOf(p.cat)>=0;})
+      .map(function(p,i){return rappiRow(p.nombre,p.costo,p.precio,'bt',i);});
+    btEl.innerHTML=rows.join('');
+  }
 
-  // ── PROMEDIO margen individuales
-  var allPlatos=PLATOS.filter(function(p){return p.costo&&p.precio;});
-  var sumMg=0, cnt=0;
-  allPlatos.forEach(function(p,i){
-    var pr=p.precio;
-    var ipoc=Math.round(pr*IPOC_RATE);
-    var pn=pr-ipoc;
-    var com=Math.round(pr*(pct/100));
+  // ── PROMEDIO margen actual
+  var platosConDatos=PLATOS.filter(function(p){return p.costo&&p.precio;});
+  var sumMg=0;
+  platosConDatos.forEach(function(p){
+    var pn=Math.round(p.precio*(1-IPOC_RATE));
+    var com=Math.round(p.precio*(comPct/100));
     var extra=inclPrime?primeCosto:0;
     var mg=pn-p.costo-com-emp-extra;
-    var mgP=pn?mg/pn*100:0;
-    sumMg+=mgP; cnt++;
+    sumMg+=pn?mg/pn*100:0;
   });
   var avgEl=document.getElementById('rappi-avg-mg');
-  if(avgEl)avgEl.textContent=cnt?(sumMg/cnt).toFixed(1)+'%':'—';
+  if(avgEl)avgEl.textContent=platosConDatos.length?(sumMg/platosConDatos.length).toFixed(1)+'%':'—';
 
   // ── CHART
-  updateRappiChart(allPlatos,pct,emp,inclPrime);
+  updateRappiChart(platosConDatos, comPct, emp, inclPrime);
 }
 
 function updateRappiChart(platos,pct,emp,inclPrime){
