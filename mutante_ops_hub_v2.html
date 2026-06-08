@@ -300,7 +300,7 @@ input:focus,select:focus{outline:none;border-color:var(--ac)}
     <div class="ct">Análisis Prime Cost — costo real por plato</div>
     <div class="al ai" style="margin-bottom:12px">Distribuye gastos fijos directos (nómina + arriendo + gas + seguridad social) entre los platos. No reemplaza el food cost — lo complementa. Semi-fijos como redes y contabilidad van al PE total pero no al costo por plato.</div>
     <div class="mg">
-      <div class="m"><div class="ml">Gastos fijos/mes</div><div class="mv" id="pc-fijos">—</div><div class="ms">Ver desglose abajo</div></div>
+      <div class="m"><div class="ml">Gastos fijos/mes</div><div class="mv" id="pc-fijos">—</div><div class="ms">Editables abajo</div></div>
       <div class="m"><div class="ml">Ventas prom/mes</div><div class="mv" id="pc-ventas">—</div><div class="ms">Datos reales</div></div>
       <div class="m"><div class="ml">% Fijos / ventas</div><div class="mv" id="pc-pct">—</div><div class="ms">Meta: &lt;35%</div></div>
       <div class="m"><div class="ml">Prime Cost estim.</div><div class="mv" id="pc-prime">—</div><div class="ms">Food+labor. Meta:&lt;60%</div></div>
@@ -332,21 +332,14 @@ input:focus,select:focus{outline:none;border-color:var(--ac)}
   <div class="card">
     <div class="ct">Punto de equilibrio dinámico</div>
     <div class="al ai" style="margin-bottom:14px">¿Cuánto tienes que vender para cubrir todos los costos? Calculado con tus egresos reales. Ajusta el ticket promedio si cambia.</div>
-    <div style="background:rgba(0,0,0,0.03);border-radius:var(--rs);padding:10px 14px;margin-bottom:14px;font-size:12px">
-      <div style="font-weight:500;color:var(--tx);margin-bottom:6px">Gastos incluidos en el cálculo:</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px">
-        <span class="tag tg">✓ Nómina (Ximena)</span>
-        <span class="tag tg">✓ Arriendo La Pala</span>
-        <span class="tag tg">✓ Gas</span>
-        <span class="tag tg">✓ Seguridad Social</span>
-        <span class="tag tb">✓ Redes (Felipe)</span>
-        <span class="tag tb">✓ Contabilidad</span>
-        <span class="tag tb">✓ Empaques</span>
-        <span class="tag tgr">✗ Propinas</span>
-        <span class="tag tgr">✗ Eventos/eventuales</span>
-        <span class="tag tgr">✗ Compras ocasionales</span>
+    <div style="background:rgba(0,0,0,0.03);border:.5px solid var(--b);border-radius:var(--rs);padding:14px;margin-bottom:14px">
+      <div style="font-weight:500;color:var(--tx);margin-bottom:10px;font-size:13px">Gastos fijos mensuales — editables</div>
+      <div id="pe-fijos-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding-top:8px;border-top:.5px solid var(--b)">
+        <input type="text" id="pe-new-label" placeholder="Nombre del gasto" style="min-width:150px"/>
+        <input type="number" id="pe-new-valor" placeholder="Valor mensual $" style="min-width:120px"/>
+        <button onclick="addFijo()" style="padding:6px 14px;background:var(--ac);color:var(--bg);border:none;border-radius:var(--rs);font-size:12px;cursor:pointer;font-family:inherit">+ Agregar gasto fijo</button>
       </div>
-      <div style="font-size:11px;color:var(--hi);margin-top:6px">Verde = fijos directos al prime cost · Azul = semi-fijos al PE · Gris = excluidos</div>
     </div>
     <div class="mg">
       <div class="m"><div class="ml">Gastos fijos/mes</div><div class="mv" id="pe-fijos">—</div><div class="ms">Nómina + arriendo + gas</div></div>
@@ -516,6 +509,22 @@ const PAL=['#1a1a18','#378ADD','#1D9E75','#BA7517','#D85A30','#7F77DD','#D4537E'
 // IPOCONSUMO: 8% sobre precio venta — se descuenta del precio antes de calcular margen
 // El precio neto = precio * (1 - IPOC_RATE)
 var IPOC_RATE = 0.08;
+
+// GASTOS FIJOS MENSUALES — editables desde el hub
+// Nómina: 2.500.428 salario + seg social + 800k propinas
+// Redes: 700k + 400k pauta
+// Arriendo La Pala: 1.200.000
+// Contabilidad: 833.000
+// Gas promedio: 953k histórico / 3 meses = 318k
+var GASTOS_FIJOS = [
+  {label: 'Nómina + Seguridad Social', valor: 2500428},
+  {label: 'Propinas (promedio mes)',    valor: 800000},
+  {label: 'Arriendo La Pala',          valor: 1200000},
+  {label: 'Redes (Felipe)',            valor: 700000},
+  {label: 'Pauta digital',             valor: 400000},
+  {label: 'Contabilidad',              valor: 833000},
+  {label: 'Gas (promedio)',            valor: 318000},
+];
 const CATCOL={
   'PROVEEDORES':     '#2563EB',
   'NOMINA':          '#16a34a',
@@ -803,22 +812,12 @@ function renderProvChart(){
 
 function renderPrimeCost(d){
   var eg=d.egresos||[];
-  // Prime cost: solo fijos operativos directos (nomina + arriendo + gas + seg social)
-  var CATS_PRIME=['NOMINA','ARRIENDO LAPALA','PAGO ARRIENDO','GAS','SEGURIDAD SOCIAL'];
-  var fijosTotal=eg.filter(function(r){
-    return CATS_PRIME.indexOf(r.categoria)>=0;
-  }).reduce(function(s,r){return s+r.total;},0);
-  var gasExtra2=eg.filter(function(r){
-    return CATS_PRIME.indexOf(r.categoria)<0&&r.proveedor&&r.proveedor.toUpperCase().indexOf('GAS')>=0;
-  }).reduce(function(s,r){return s+r.total;},0);
-  fijosTotal+=gasExtra2;
-  var mesSet={};
-  eg.forEach(function(r){var m=String(r.fecha).substring(0,7);if(m)mesSet[m]=1;});
-  var nMeses=Object.keys(mesSet).length;
-  var fijosMes=nMeses?Math.round(fijosTotal/nMeses):0;
+  // Prime cost: usa gastos fijos manuales de GASTOS_FIJOS
+  var fijosMes=GASTOS_FIJOS.reduce(function(s,g){return s+g.valor;},0);
   var mObj=d.resumen&&d.resumen.ingresosPorMes||{};
   var mKeys=Object.keys(mObj);
   var ventasProm=mKeys.length?Object.values(mObj).reduce(function(s,m){return s+m.total;},0)/mKeys.length:0;
+  var pctFijos=ventasProm?((fijosMes/ventasProm)*100).toFixed(1):0;
   var pctFijos=ventasProm?((fijosMes/ventasProm)*100).toFixed(1):0;
   var platosConDatos=PLATOS.filter(function(p){return p.costo&&p.precio;});
   // Food cost % sobre precio carta
@@ -842,6 +841,481 @@ function renderPrimeCost(d){
     return'<tr><td>'+p.nombre+'</td><td>'+fmtF(p.costo)+'</td><td style="color:var(--am)">+'+fmtF(costFijo)+'</td><td><strong>'+fmtF(costoReal)+'</strong></td><td>'+fmtF(p.precio)+'<br><span style="font-size:10px;color:#991b1b">−'+fmtF(ipocAmt)+' ipoc → '+fmtF(pNeto)+'</span></td><td style="'+(mgReal<0?'color:var(--rd)':'')+'">'+fmtF(mgReal)+'</td><td><span class="tag '+cls+'">'+mgP+'%</span></td></tr>';
   }).join('');
   window._primeCostPorPlato=costFijo;
+}
+
+function recalcRappi(){
+  var pctEl=document.getElementById('rappi-pct');
+  var empEl=document.getElementById('rappi-empaque');
+  var primeChk=document.getElementById('rappi-prime');
+  if(!pctEl||!empEl)return;
+  var comPct=parseFloat(pctEl.textContent)||15;   // comisión %
+  var emp=parseFloat(empEl.textContent)||1500;      // empaque $
+  var inclPrime=primeChk&&primeChk.checked;
+  var primeCosto=window._primeCostPorPlato||0;
+  var pvEl=document.getElementById('rappi-prime-val');
+  if(pvEl)pvEl.textContent=inclPrime?'+'+fmtF(primeCosto)+' por plato':'No incluido';
+
+  // ── Función que construye una fila
+  // foodCost: costo ingredientes
+  // precioCartaBase: precio de la carta (fijo, referencia)
+  // seccion: string para prefijo de IDs
+  // idx: número de fila
+  function rappiRow(nombre, foodCost, precioCartaBase, seccion, idx){
+    var mgObjId='rmgo-'+seccion+'-'+idx;
+    var mgObjEl=document.getElementById(mgObjId);
+
+    // Margen actual: sobre precio neto de carta (post ipoconsumo)
+    var precioNeto=Math.round(precioCartaBase*(1-IPOC_RATE));
+    var ipocCarta=Math.round(precioCartaBase*IPOC_RATE);
+    var extraPrime=inclPrime&&foodCost?primeCosto:0;
+    var comisionCarta=Math.round(precioCartaBase*(comPct/100));
+    var mgActualAmt=foodCost?precioNeto-foodCost-comisionCarta-emp-extraPrime:0;
+    // Margen % sobre precio carta (no precio neto)
+    var mgActualPct=precioCartaBase&&foodCost?((mgActualAmt/precioCartaBase)*100).toFixed(1):'—';
+
+    // Margen deseado: default = margen actual, editable
+    var mgDeseado=mgObjEl?parseFloat(mgObjEl.textContent):parseFloat(mgActualPct)||30;
+    if(isNaN(mgDeseado))mgDeseado=parseFloat(mgActualPct)||30;
+
+    // Precio objetivo Rappi:
+    // Queremos: mgDeseado% = (precioNeto_obj - foodCost - comision_obj - emp - prime) / precioNeto_obj
+    // precioNeto_obj = precioRappi_obj * (1 - IPOC_RATE)
+    // comision_obj = precioRappi_obj * comPct/100
+    // Despejando precioRappi_obj:
+    // precioNeto_obj - foodCost - precioRappi_obj*(comPct/100) - emp - prime = mgDeseado/100 * precioNeto_obj
+    // precioRappi_obj*(1-IPOC_RATE) - precioRappi_obj*(comPct/100) - foodCost - emp - prime = mgDeseado/100 * precioRappi_obj*(1-IPOC_RATE)
+    // precioRappi_obj * [(1-IPOC_RATE) - comPct/100 - mgDeseado/100*(1-IPOC_RATE)] = foodCost + emp + prime
+    // precioRappi_obj * [(1-IPOC_RATE)*(1 - mgDeseado/100) - comPct/100] = foodCost + emp + prime
+    var precioObjRappi='—';
+    var mgObjAmt='—';
+    var comObjStr='—';
+    if(foodCost){
+      // Fórmula: margen % sobre precio carta Rappi
+      // mgObj% = (pRappi*(1-IPOC) - fc - pRappi*comPct% - emp - prime) / pRappi
+      // mgObj% = (1-IPOC-comPct%) - (fc+emp+prime)/pRappi
+      // pRappi = (fc+emp+prime) / (1 - IPOC_RATE - comPct/100 - mgDeseado/100)
+      var denom=1-IPOC_RATE-(comPct/100)-(mgDeseado/100);
+      if(denom>0.01){
+        var pObjRaw=Math.ceil((foodCost+emp+extraPrime)/denom/100)*100;
+        precioObjRappi=fmtF(pObjRaw);
+        var pObjNeto=Math.round(pObjRaw*(1-IPOC_RATE));
+        var comObj=Math.round(pObjRaw*(comPct/100));
+        var mgAmt=pObjNeto-foodCost-comObj-emp-extraPrime;
+        mgObjAmt=fmtF(Math.round(mgAmt));
+        comObjStr=fmtF(comObj);
+      } else {
+        precioObjRappi='Inviable';
+      }
+    }
+
+    var clsAct=!foodCost?'tgr':parseFloat(mgActualPct)<0?'tr':parseFloat(mgActualPct)<25?'tr':parseFloat(mgActualPct)<45?'ta':'tg';
+
+    return '<tr>'
+      +'<td style="font-weight:500">'+nombre+'</td>'
+      +'<td>'+(foodCost?fmtF(foodCost):'<span style="color:var(--hi)">Sin costeo</span>')+'</td>'
+      +'<td>'+fmtF(precioCartaBase)+'<br><span style="font-size:10px;color:#991b1b">−'+fmtF(ipocCarta)+' ipoc → neto '+fmtF(precioNeto)+'</span></td>'
+      +'<td><span class="tag '+clsAct+'">'+(mgActualPct!=='—'?mgActualPct+'%':'—')+'</span></td>'
+      +'<td style="font-weight:500;color:#185fa5">'
+        +(foodCost?'<span class="ec" contenteditable="true" id="'+mgObjId+'" onblur="recalcRappi()" style="min-width:35px;color:#185fa5;font-weight:600">'+mgDeseado.toFixed(1)+'</span>%':'—')
+      +'</td>'
+      +'<td style="font-weight:600;color:#185fa5;font-size:13px">'+precioObjRappi+'</td>'
+      +'<td style="color:var(--rd);font-size:11px">'+(foodCost&&precioObjRappi!=='—'&&precioObjRappi!=='Inviable'?'−'+comObjStr:'—')+'</td>'
+      +'<td style="color:var(--am);font-size:11px">'+(foodCost?'−'+fmtF(emp):'—')+'</td>'
+      +'<td style="font-size:11px">'+(foodCost?mgObjAmt:'—')+'</td>'
+      +'</tr>';
+  }
+
+  // ── INDIVIDUALES
+  var IND_CATS=['Hamburguesas','Perritos'];
+  var indEl=document.getElementById('rappi-ind');
+  if(indEl){
+    var rows=PLATOS.filter(function(p){return IND_CATS.indexOf(p.cat)>=0;})
+      .map(function(p,i){return rappiRow(p.nombre,p.costo,p.precio,'ind',i);});
+    indEl.innerHTML=rows.join('');
+  }
+
+  // ── COMBOS PAPAS NORMALES
+  var cnEl=document.getElementById('rappi-combos-n');
+  if(cnEl){
+    var rows=COMBOS.map(function(p,i){
+      return rappiRow(p.nombre+' + Papas normales', p.costo+PAPAS_N_COST, p.pN, 'cn', i);
+    });
+    cnEl.innerHTML=rows.join('');
+  }
+
+  // ── COMBOS PAPAS TRUFADAS
+  var ctEl=document.getElementById('rappi-combos-t');
+  if(ctEl){
+    var rows=COMBOS.map(function(p,i){
+      return rappiRow(p.nombre+' + Papas trufadas', p.costo+PAPAS_T_COST, p.pT, 'ct', i);
+    });
+    ctEl.innerHTML=rows.join('');
+  }
+
+  // ── BITES & BEBIDAS
+  var btEl=document.getElementById('rappi-bites');
+  if(btEl){
+    var BITE_CATS=['Bites','Bebidas','Otros'];
+    var rows=PLATOS.filter(function(p){return BITE_CATS.indexOf(p.cat)>=0;})
+      .map(function(p,i){return rappiRow(p.nombre,p.costo,p.precio,'bt',i);});
+    btEl.innerHTML=rows.join('');
+  }
+
+  // ── PROMEDIO margen actual
+  var platosConDatos=PLATOS.filter(function(p){return p.costo&&p.precio;});
+  var sumMg=0;
+  platosConDatos.forEach(function(p){
+    var pn=Math.round(p.precio*(1-IPOC_RATE));
+    var com=Math.round(p.precio*(comPct/100));
+    var extra=inclPrime?primeCosto:0;
+    var mg=pn-p.costo-com-emp-extra;
+    // Promedio sobre precio carta
+    sumMg+=p.precio?mg/p.precio*100:0;
+  });
+  var avgEl=document.getElementById('rappi-avg-mg');
+  if(avgEl)avgEl.textContent=platosConDatos.length?(sumMg/platosConDatos.length).toFixed(1)+'%':'—';
+
+  // ── CHART
+  updateRappiChart(platosConDatos, comPct, emp, inclPrime);
+}
+
+function updateRappiChart(platos,pct,emp,inclPrime){
+  var primeCosto=inclPrime?window._primeCostPorPlato||0:0;
+  var filtered=platos.filter(function(p){return p.costo>0;});
+  var labels=filtered.map(function(p){return p.nombre.replace('Hamburguesa ','');});
+  var data=filtered.map(function(p){var mn=p.precio-p.costo-Math.round(p.precio*pct/100)-emp-primeCosto;return((mn/p.precio)*100).toFixed(1);});
+  var bgs=data.map(function(v){return parseFloat(v)<0?'#E24B4A':parseFloat(v)<30?'#E24B4A':parseFloat(v)<50?'#BA7517':'#1D9E75';});
+  if(CH.rappi)CH.rappi.destroy();
+  var el=document.getElementById('ch-rappi');
+  if(!el)return;
+  CH.rappi=new Chart(el,{type:'bar',data:{labels:labels,datasets:[{data:data,backgroundColor:bgs,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return v+'%';}}}}}});
+}
+
+function buildCostosTable(){
+  var tbody=document.getElementById('costos-tbody');
+  var html='';
+  var lastCat='';
+  PLATOS.forEach(function(p,i){
+    if(p.cat!==lastCat){
+      var col=CATUI[p.cat]||'var(--hi)';
+      html+='<tr class="sep-row"><td colspan="5"><div class="sep-label" style="background:'+col+'20;color:'+col+'">'+p.cat+'</div></td></tr>';
+      lastCat=p.cat;
+    }
+    var nota=p.nota?'<br><span style="font-size:10px;color:var(--am)">'+p.nota+'</span>':'';
+    var precioNeto=p.precio?Math.round(p.precio*(1-IPOC_RATE)):0;
+    var ipocVal=p.precio?Math.round(p.precio*IPOC_RATE):0;
+    var mg=precioNeto&&p.costo?precioNeto-p.costo:0;
+    // Margen % sobre precio CARTA (denominador = precio carta, no precio neto)
+    var mgP=p.precio&&p.costo?((precioNeto-p.costo)/p.precio*100).toFixed(1):'—';
+    var cls=!p.costo?'tgr':parseFloat(mgP)<30?'tr':parseFloat(mgP)<55?'ta':'tg';
+    html+='<tr id="crow-'+i+'"><td>'+p.nombre+nota+'</td><td><span class="ec" contenteditable="true" oninput="recalcRow(this,'+i+',\'c\')" id="ec-'+i+'">'+(p.costo||0)+'</span></td><td><span class="ec" contenteditable="true" oninput="recalcRow(this,'+i+',\'p\')" id="ep-'+i+'">'+(p.precio||0)+'</span></td><td style="color:#991b1b;font-size:11px">-'+fmtF(ipocVal)+'</td><td style="font-weight:500">'+fmtF(precioNeto)+'</td><td id="cmg-'+i+'">'+(mg?fmtF(mg):'—')+'</td><td id="cpct-'+i+'"><span class="tag '+cls+'">'+(mgP!=='—'?mgP+'%':'—')+'</span></td><td><button onclick="deleteProducto('+i+')" style="padding:2px 8px;font-size:10px;background:rgba(220,38,38,0.08);color:#dc2626;border:.5px solid rgba(220,38,38,0.3);border-radius:4px;cursor:pointer">✕</button></td></tr>';
+  });
+  tbody.innerHTML=html;
+}
+
+function recalcRow(el,i){
+  var cEl=document.getElementById('ec-'+i);
+  var pEl=document.getElementById('ep-'+i);
+  if(!cEl||!pEl)return;
+  var c=parseFloat(cEl.textContent.replace(/[^0-9]/g,''))||0;
+  var p=parseFloat(pEl.textContent.replace(/[^0-9]/g,''))||0;
+  PLATOS[i].costo=c; PLATOS[i].precio=p;
+  var ci=COMBOS.findIndex(function(x){return x.nombre===PLATOS[i].nombre;});
+  if(ci>=0)COMBOS[ci].costo=c;
+  var pNeto=Math.round(p*(1-IPOC_RATE));
+  var mg=pNeto&&c?pNeto-c:0;
+  // Margen % sobre precio carta
+  var mgP=p&&c?((pNeto-c)/p*100).toFixed(1):'—';
+  var cls=!c?'tgr':parseFloat(mgP)<30?'tr':parseFloat(mgP)<55?'ta':'tg';
+  document.getElementById('cmg-'+i).textContent=mg?fmtF(mg):'—';
+  document.getElementById('cpct-'+i).innerHTML='<span class="tag '+cls+'">'+(mgP!=='—'?mgP+'%':'—')+'</span>';
+  updateMargenesChart();
+  buildCombos();
+  recalcRappi();
+  if(DATA){renderPrimeCost(DATA);recalcPE();}
+}
+
+function updateIpoc(){
+  var el=document.getElementById('ipoc-input');
+  if(!el)return;
+  var v=parseFloat(el.textContent)||8;
+  IPOC_RATE=v/100;
+  buildCostosTable();
+  buildCombos();
+  recalcRappi();
+  if(DATA){renderPrimeCost(DATA);recalcPE();}
+  updateMargenesChart();
+}
+
+function buildCombos(){
+  ['n','t'].forEach(function(type){
+    var truf=type==='t';
+    var rows=COMBOS.map(function(p){
+      var pC=truf?PAPAS_T_COST:PAPAS_N_COST;
+      var pV=truf?p.pT:p.pN;
+      var pVNeto=pV?Math.round(pV*(1-IPOC_RATE)):0;
+      var cc=p.costo+pC;
+      var mg=p.costo&&pVNeto?pVNeto-cc:0;
+      // Margen % sobre precio carta combo
+      var mgP=p.costo&&pV?((pVNeto-cc)/pV*100).toFixed(1):'—';
+      var cls=!p.costo?'tgr':parseFloat(mgP)<30?'tr':parseFloat(mgP)<60?'ta':'tg';
+      var sc=!p.costo?'<br><span style="font-size:10px;color:var(--am)">Sin costeo</span>':'';
+      return'<tr><td>'+p.nombre+sc+'</td><td>'+(p.costo?fmtF(p.costo):'—')+'</td><td>'+fmtF(pC)+'</td><td>'+(p.costo?fmtF(cc):'—')+'</td><td>'+fmtF(pV)+'<br><span style="font-size:10px;color:#991b1b">Neto: '+fmtF(pVNeto)+'</span></td><td>'+(p.costo?fmtF(mg):'—')+'</td><td><span class="tag '+cls+'">'+(mgP!=='—'?mgP+'%':'—')+'</span></td></tr>';
+    });
+    document.getElementById('combos-'+type).innerHTML=rows.join('');
+  });
+}
+
+function initCharts(){
+  var dark=window.matchMedia('(prefers-color-scheme:dark)').matches;
+  Chart.defaults.color=dark?'#9c9a92':'#6b6a63';
+  Chart.defaults.borderColor=dark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.06)';
+  Chart.defaults.font.family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+  Chart.defaults.font.size=11;
+  CH.meses=new Chart(document.getElementById('ch-meses'),{
+    type:'bar',
+    data:{labels:[],datasets:[
+      {label:'Ventas',data:[],backgroundColor:PAL[1],borderRadius:4},
+      {label:'Egresos',data:[],backgroundColor:PAL[4],borderRadius:4}
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}},
+        tooltip:{callbacks:{title:function(items){var l=items[0].label;return Array.isArray(l)?l.join(' '):l;}}}
+      },
+      scales:{
+        x:{ticks:{font:{size:9},maxRotation:0}},
+        y:{ticks:{callback:function(v){return '$'+(v/1e6).toFixed(1)+'M';}}}
+      }
+    }
+  });
+  CH.cats=new Chart(document.getElementById('ch-cats'),{type:'doughnut',data:{labels:[],datasets:[{data:[],backgroundColor:Object.values(CATCOL)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}}}});
+  CH.diasem=new Chart(document.getElementById('ch-diasem'),{type:'bar',data:{labels:['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],datasets:[{data:[0,0,0,0,0,0,0],backgroundColor:[PAL[9],PAL[9],PAL[9],PAL[9],PAL[1],PAL[2],PAL[0]],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return'$'+Math.round(v/1e3)+'K';}}}}}});
+  CH.diario=new Chart(document.getElementById('ch-diario'),{type:'line',data:{labels:[],datasets:[{label:'Ventas',data:[],borderColor:PAL[1],backgroundColor:'rgba(55,138,221,0.1)',fill:true,tension:0.3,pointRadius:2,borderWidth:1.5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return'$'+Math.round(v/1e3)+'K';}}}}}});
+  CH.ventas=new Chart(document.getElementById('ch-ventas'),{type:'line',data:{labels:[],datasets:[{label:'Ventas',data:[],borderColor:PAL[1],backgroundColor:'rgba(55,138,221,0.1)',fill:true,tension:0.3,pointRadius:2,borderWidth:1.5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return'$'+Math.round(v/1e3)+'K';}}}}}});
+  updateMargenesChart();
+  CH.pe=new Chart(document.getElementById('ch-pe'),{
+    type:'bar',
+    data:{labels:[],datasets:[
+      {label:'Ventas reales',data:[],backgroundColor:PAL[1],borderRadius:4,order:2},
+      {label:'Punto de equilibrio',data:[],type:'line',borderColor:'#E24B4A',backgroundColor:'rgba(226,75,74,0.08)',borderWidth:2,borderDash:[6,3],pointRadius:4,pointBackgroundColor:'#E24B4A',fill:true,order:1}
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}},
+        tooltip:{callbacks:{label:function(i){return i.dataset.label+': $'+(i.raw/1e6).toFixed(2)+'M';}}}
+      },
+      scales:{y:{ticks:{callback:function(v){return '$'+(v/1e6).toFixed(1)+'M';}}}}
+    }
+  });
+}
+
+function updateAllCharts(d){
+  if(!d||!d.resumen)return;
+  var mObj=d.resumen.ingresosPorMes||{};
+  var egCM=d.resumen.egresosPorCatMes||{};
+  var allMSet={};
+  Object.keys(mObj).forEach(function(k){allMSet[k]=1;});
+  Object.keys(egCM).forEach(function(k){allMSet[k]=1;});
+  var allM=Object.keys(allMSet).sort();
+  ['dash-mes','dash-cats-mes','dash-dia-mes','dash-diario-mes'].forEach(function(id){
+    var s=document.getElementById(id);if(!s)return;
+    var cur=s.value;
+    var def=id==='dash-dia-mes'?'<option value="">Histórico</option>':'<option value="">Todos</option>';
+    s.innerHTML=def+allM.map(function(m){return'<option value="'+m+'">'+m+'</option>';}).join('');
+    s.value=cur;
+  });
+  updateDashChart();
+  updateCatsChart();
+  updateDiasemChart();
+  updateDiarioChart();
+}
+
+function updateDashChart(){
+  if(!DATA||!DATA.resumen||!CH.meses)return;
+  var fil=document.getElementById('dash-mes')&&document.getElementById('dash-mes').value||'';
+  var mObj=DATA.resumen.ingresosPorMes||{};
+  var egCM=DATA.resumen.egresosPorCatMes||{};
+  var allMSet={};
+  Object.keys(mObj).forEach(function(k){allMSet[k]=1;});
+  Object.keys(egCM).forEach(function(k){allMSet[k]=1;});
+  var labels=Object.keys(allMSet).sort();
+  if(fil)labels=labels.filter(function(l){return l===fil;});
+  var vD=labels.map(function(l){return mObj[l]&&mObj[l].total||0;});
+  var eD=labels.map(function(l){return Object.values(egCM[l]||{}).reduce(function(s,v){return s+v;},0);});
+  var tV=vD.reduce(function(s,v){return s+v;},0);
+  var tE=eD.reduce(function(s,v){return s+v;},0);
+  var lbl=document.getElementById('dash-totlbl');
+  if(lbl)lbl.textContent=(tV||tE)?'V:'+fmt(tV)+' E:'+fmt(tE):'';
+  // Build labels with variation % for both ventas and egresos
+  var chartLabels=labels.map(function(l,i){
+    if(i===0)return [l,'',''];
+    var pV=vD[i-1]||0; var cV=vD[i]||0;
+    var pE=eD[i-1]||0; var cE=eD[i]||0;
+    var varV=pV?((cV-pV)/pV*100).toFixed(1):'—';
+    var varE=pE?((cE-pE)/pE*100).toFixed(1):'—';
+    var labelV=pV?(varV>=0?'▲':'')+varV+'%':'';
+    var labelE=pE?(varE>=0?'▲':'▼')+varE+'%':'';
+    return [l, 'V:'+labelV, 'E:'+labelE];
+  });
+  CH.meses.data.labels=chartLabels;
+  CH.meses.data.datasets[0].data=vD;
+  CH.meses.data.datasets[1].data=eD;
+  CH.meses.update();
+}
+
+function updateCatsChart(){
+  if(!DATA||!CH.cats)return;
+  var fil=document.getElementById('dash-cats-mes')&&document.getElementById('dash-cats-mes').value||'';
+  var eg=DATA.egresos||[];
+  var filEg=eg.filter(function(r){return!fil||String(r.fecha).indexOf(fil)===0;});
+  var cats={};
+  filEg.forEach(function(r){if(!cats[r.categoria])cats[r.categoria]=0;cats[r.categoria]+=r.total;});
+  var total=Object.values(cats).reduce(function(s,v){return s+v;},0);
+  var el=document.getElementById('dash-cats-tot');
+  if(el)el.textContent=total?fmt(total):'';
+  CH.cats.data.labels=Object.keys(cats);
+  CH.cats.data.datasets[0].data=Object.values(cats);
+  CH.cats.data.datasets[0].backgroundColor=Object.keys(cats).map(function(c){return CATCOL[c]||PAL[9];});
+  CH.cats.update();
+}
+
+function updateDiasemChart(){
+  if(!DATA||!CH.diasem)return;
+  var fil=document.getElementById('dash-dia-mes')&&document.getElementById('dash-dia-mes').value||'';
+  var ing=(DATA.ingresos||[]).filter(function(r){return r.total>0&&(!fil||String(r.fecha).indexOf(fil)===0);});
+  var byD={Lunes:[],Martes:[],Miércoles:[],Jueves:[],Viernes:[],Sábado:[],Domingo:[]};
+  ing.forEach(function(r){if(byD[r.dia])byD[r.dia].push(r.total);});
+  var order=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+  CH.diasem.data.datasets[0].data=order.map(function(d){var a=byD[d];return a.length?Math.round(a.reduce(function(s,v){return s+v;},0)/a.length):0;});
+  CH.diasem.update();
+}
+
+function updateDiarioChart(){
+  if(!DATA||!CH.diario)return;
+  var fil=document.getElementById('dash-diario-mes')&&document.getElementById('dash-diario-mes').value||'';
+  var ing=(DATA.ingresos||[]).filter(function(r){return r.total>0&&(!fil||String(r.fecha).indexOf(fil)===0);}).slice(-90);
+  CH.diario.data.labels=ing.map(function(r){return r.fecha.substring(5);});
+  CH.diario.data.datasets[0].data=ing.map(function(r){return r.total;});
+  CH.diario.update();
+}
+
+function updateMargenesChart(){
+  var pl=PLATOS.filter(function(p){return p.costo&&p.precio;});
+  if(CH.marg)CH.marg.destroy();
+  var el=document.getElementById('ch-marg');
+  if(!el)return;
+  var data=pl.map(function(p){var pN=Math.round(p.precio*(1-IPOC_RATE));return p.precio?((pN-p.costo)/p.precio*100):0;});
+  CH.marg=new Chart(el,{type:'bar',data:{labels:pl.map(function(p){return p.nombre.replace('Hamburguesa ','');}),datasets:[{data:data,backgroundColor:data.map(function(v){return v<30?'#E24B4A':v<60?'#BA7517':CATUI[pl[data.indexOf(v)]&&pl[data.indexOf(v)].cat]||'#1D9E75';}),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{max:100,ticks:{callback:function(v){return v+'%';}}}}}});
+}
+
+function recalcPE(){
+  // Use manual fijos array
+  var fijosMes=GASTOS_FIJOS.reduce(function(s,g){return s+g.valor;},0);
+
+  var platosConDatos=PLATOS.filter(function(p){return p.costo>0&&p.precio>0;});
+  var fcProm=platosConDatos.length?platosConDatos.reduce(function(s,p){
+    return s+(p.precio?p.costo/p.precio:0);
+  },0)/platosConDatos.length:0;
+
+  var ticketEl=document.getElementById('pe-ticket');
+  var ticket=ticketEl?parseFloat(ticketEl.textContent.replace(/[^0-9]/g,''))||35000:35000;
+
+  var margenContribucion=1-IPOC_RATE-fcProm;
+  var pe=margenContribucion>0.01?Math.round(fijosMes/margenContribucion):0;
+  var uds=ticket>0?Math.round(pe/ticket):0;
+
+  var mObj=DATA&&DATA.resumen&&DATA.resumen.ingresosPorMes||{};
+  var mKeys=Object.keys(mObj).filter(function(k){return mObj[k]&&mObj[k].total>0;});
+  var ventasProm=mKeys.length?mKeys.reduce(function(s,k){return s+mObj[k].total;},0)/mKeys.length:0;
+  var superavit=ventasProm-pe;
+  var pctVsPE=pe>0?Math.min(150,Math.round(ventasProm/pe*100)):0;
+
+  // Render fijos list
+  renderFijosList();
+
+  // Update metrics
+  var el=document.getElementById('pe-fijos');if(el)el.textContent=fmtF(fijosMes);
+  el=document.getElementById('pe-fc-pct');if(el)el.textContent=(fcProm*100).toFixed(1)+'%';
+  el=document.getElementById('pe-value');if(el)el.textContent=fmtF(pe);
+  el=document.getElementById('pe-uds');if(el)el.textContent=uds+' platos';
+  el=document.getElementById('pe-ventas-act');if(el)el.textContent=fmt(ventasProm);
+  el=document.getElementById('pe-ventas-sub');
+  if(el){
+    if(superavit>0){el.textContent='▲ $'+Math.round(superavit/1e3)+'K sobre PE';el.style.color='var(--gn)';}
+    else{el.textContent='▼ $'+Math.round(Math.abs(superavit)/1e3)+'K bajo PE';el.style.color='var(--rd)';}
+  }
+
+  var bar=document.getElementById('pe-bar');
+  if(bar){
+    bar.style.width=Math.min(100,pctVsPE)+'%';
+    bar.style.background=pctVsPE>=100?'var(--gn)':pctVsPE>=80?'var(--am)':'var(--rd)';
+  }
+  el=document.getElementById('pe-bar-pct');if(el)el.textContent=pctVsPE+'% del PE';
+  el=document.getElementById('pe-bar-mid');if(el)el.textContent=fmtF(Math.round(pe/2));
+  el=document.getElementById('pe-bar-max');if(el)el.textContent=fmtF(pe)+' (PE)';
+
+  if(CH.pe&&mKeys.length>0){
+    var sortedKeys=mKeys.sort();
+    CH.pe.data.labels=sortedKeys;
+    CH.pe.data.datasets[0].data=sortedKeys.map(function(k){return mObj[k]&&mObj[k].total||0;});
+    CH.pe.data.datasets[1].data=sortedKeys.map(function(){return pe;});
+    CH.pe.update();
+  }
+
+  window._fijosMes=fijosMes;
+  window._fcProm=fcProm;
+  window._peValue=pe;
+}
+
+function renderFijosList(){
+  var el=document.getElementById('pe-fijos-list');
+  if(!el)return;
+  var COLORES=['#16a34a','#D85A30','#F59E0B','#8B5CF6','#6B7280','#0EA5E9','#10B981','#EC4899','#378ADD','#BA7517'];
+  el.innerHTML=GASTOS_FIJOS.map(function(g,i){
+    var col=COLORES[i%COLORES.length];
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--card);border-radius:6px;border:.5px solid var(--b)">'
+      +'<div style="display:flex;align-items:center;gap:8px">'
+        +'<div style="width:8px;height:8px;border-radius:50%;background:'+col+';flex-shrink:0"></div>'
+        +'<span style="font-size:12px;color:var(--tx)">'+g.label+'</span>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;gap:10px">'
+        +'<span style="font-size:12px">$</span>'
+        +'<span class="ec" contenteditable="true" onblur="editFijo('+i+',this)" style="font-size:13px;font-weight:500;min-width:80px;text-align:right">'+Math.round(g.valor).toLocaleString('es-CO')+'</span>'
+        +'<span style="font-size:11px;color:var(--hi)">/mes</span>'
+        +'<button onclick="deleteFijo('+i+')" style="padding:1px 7px;font-size:10px;background:rgba(220,38,38,0.08);color:#dc2626;border:.5px solid rgba(220,38,38,0.3);border-radius:4px;cursor:pointer">✕</button>'
+      +'</div>'
+    +'</div>';
+  }).join('');
+  var totEl=document.getElementById('pe-desglose-total');
+  if(totEl)totEl.textContent=fmtF(GASTOS_FIJOS.reduce(function(s,g){return s+g.valor;},0));
+}
+
+function editFijo(i,el){
+  var v=parseFloat(el.textContent.replace(/[^0-9]/g,''))||0;
+  GASTOS_FIJOS[i].valor=v;
+  recalcPE();
+  if(DATA)renderPrimeCost(DATA);
+}
+
+function addFijo(){
+  var label=document.getElementById('pe-new-label').value.trim();
+  var valor=parseFloat(document.getElementById('pe-new-valor').value)||0;
+  if(!label){alert('Escribe el nombre del gasto');return;}
+  GASTOS_FIJOS.push({label:label,valor:valor});
+  document.getElementById('pe-new-label').value='';
+  document.getElementById('pe-new-valor').value='';
+  recalcPE();
+  if(DATA)renderPrimeCost(DATA);
+}
+
+function deleteFijo(i){
+  if(GASTOS_FIJOS.length<=1){alert('Debe quedar al menos un gasto fijo');return;}
+  GASTOS_FIJOS.splice(i,1);
+  recalcPE();
+  if(DATA)renderPrimeCost(DATA);
 }
 
 function recalcRappi(){
