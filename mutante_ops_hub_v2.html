@@ -403,12 +403,12 @@ input:focus,select:focus{outline:none;border-color:var(--ac)}
   <div class="mg">
     <div class="m">
       <div class="ml">Comisión Rappi (%)</div>
-      <div style="margin-top:4px"><span class="ec" contenteditable="true" id="rappi-pct" oninput="recalcRappi()" style="font-size:18px;font-weight:500">15</span><span style="font-size:14px;color:var(--mu)"> %</span></div>
+      <div style="margin-top:4px"><span class="ec" contenteditable="true" id="rappi-pct" onblur="recalcRappi()" onkeydown="if(event.key==='Enter'){this.blur();}" style="font-size:18px;font-weight:500">15</span><span style="font-size:14px;color:var(--mu)"> %</span></div>
       <div class="ms">Editable</div>
     </div>
     <div class="m">
       <div class="ml">Costo empaque/caja ($)</div>
-      <div style="margin-top:4px"><span class="ec" contenteditable="true" id="rappi-empaque" oninput="recalcRappi()" style="font-size:18px;font-weight:500">1500</span></div>
+      <div style="margin-top:4px"><span class="ec" contenteditable="true" id="rappi-empaque" onblur="recalcRappi()" onkeydown="if(event.key==='Enter'){this.blur();}" style="font-size:18px;font-weight:500">1500</span></div>
       <div class="ms">Por pedido</div>
     </div>
     <div class="m">
@@ -901,7 +901,7 @@ function recalcRappi(){
       +'<td>'+fmtF(precioCartaBase)+'<br><span style="font-size:10px;color:#991b1b">−'+fmtF(ipocCarta)+' ipoc → neto '+fmtF(precioNeto)+'</span></td>'
       +'<td><span class="tag '+clsAct+'">'+(mgActualPct!=='—'?mgActualPct+'%':'—')+'</span></td>'
       +'<td style="font-weight:500;color:#185fa5">'
-        +(foodCost?'<span class="ec" contenteditable="true" id="'+mgObjId+'" oninput="recalcRappi()" style="min-width:35px;color:#185fa5;font-weight:600">'+mgDeseado.toFixed(1)+'</span>%':'—')
+        +(foodCost?'<span class="ec" contenteditable="true" id="'+mgObjId+'" onblur="recalcRappi()" style="min-width:35px;color:#185fa5;font-weight:600">'+mgDeseado.toFixed(1)+'</span>%':'—')
       +'</td>'
       +'<td style="font-weight:600;color:#185fa5;font-size:13px">'+precioObjRappi+'</td>'
       +'<td style="color:var(--rd);font-size:11px">'+(foodCost&&precioObjRappi!=='—'&&precioObjRappi!=='Inviable'?'−'+comObjStr:'—')+'</td>'
