@@ -821,7 +821,8 @@ function renderPrimeCost(d){
   var ventasProm=mKeys.length?Object.values(mObj).reduce(function(s,m){return s+m.total;},0)/mKeys.length:0;
   var pctFijos=ventasProm?((fijosMes/ventasProm)*100).toFixed(1):0;
   var platosConDatos=PLATOS.filter(function(p){return p.costo&&p.precio;});
-  var fcProm=platosConDatos.length?platosConDatos.reduce(function(s,p){var pN=Math.round(p.precio*(1-IPOC_RATE));return s+(pN?p.costo/pN:0);},0)/platosConDatos.length:0;
+  // Food cost % sobre precio carta
+  var fcProm=platosConDatos.length?platosConDatos.reduce(function(s,p){return s+(p.precio?p.costo/p.precio:0);},0)/platosConDatos.length:0;
   var primeCost=(fcProm*100+parseFloat(pctFijos||0)).toFixed(1);
   document.getElementById('pc-fijos').textContent=fmt(fijosMes);
   document.getElementById('pc-ventas').textContent=fmt(ventasProm);
@@ -835,7 +836,8 @@ function renderPrimeCost(d){
     var ipocAmt=Math.round(p.precio*IPOC_RATE);
     var costoReal=p.costo+costFijo;
     var mgReal=pNeto-costoReal;
-    var mgP=pNeto?((mgReal/pNeto)*100).toFixed(1):0;
+    // Margen % sobre precio carta
+    var mgP=p.precio?((mgReal/p.precio)*100).toFixed(1):0;
     var cls=parseFloat(mgP)<0?'tr':parseFloat(mgP)<30?'tr':parseFloat(mgP)<50?'ta':'tg';
     return'<tr><td>'+p.nombre+'</td><td>'+fmtF(p.costo)+'</td><td style="color:var(--am)">+'+fmtF(costFijo)+'</td><td><strong>'+fmtF(costoReal)+'</strong></td><td>'+fmtF(p.precio)+'<br><span style="font-size:10px;color:#991b1b">−'+fmtF(ipocAmt)+' ipoc → '+fmtF(pNeto)+'</span></td><td style="'+(mgReal<0?'color:var(--rd)':'')+'">'+fmtF(mgReal)+'</td><td><span class="tag '+cls+'">'+mgP+'%</span></td></tr>';
   }).join('');
@@ -869,7 +871,8 @@ function recalcRappi(){
     var extraPrime=inclPrime&&foodCost?primeCosto:0;
     var comisionCarta=Math.round(precioCartaBase*(comPct/100));
     var mgActualAmt=foodCost?precioNeto-foodCost-comisionCarta-emp-extraPrime:0;
-    var mgActualPct=precioNeto&&foodCost?((mgActualAmt/precioNeto)*100).toFixed(1):'—';
+    // Margen % sobre precio carta (no precio neto)
+    var mgActualPct=precioCartaBase&&foodCost?((mgActualAmt/precioCartaBase)*100).toFixed(1):'—';
 
     // Margen deseado: default = margen actual, editable
     var mgDeseado=mgObjEl?parseFloat(mgObjEl.textContent):parseFloat(mgActualPct)||30;
@@ -888,13 +891,18 @@ function recalcRappi(){
     var mgObjAmt='—';
     var comObjStr='—';
     if(foodCost){
-      var denom=(1-IPOC_RATE)*(1-mgDeseado/100)-(comPct/100);
+      // Fórmula: margen % sobre precio carta Rappi
+      // mgObj% = (pRappi*(1-IPOC) - fc - pRappi*comPct% - emp - prime) / pRappi
+      // mgObj% = (1-IPOC-comPct%) - (fc+emp+prime)/pRappi
+      // pRappi = (fc+emp+prime) / (1 - IPOC_RATE - comPct/100 - mgDeseado/100)
+      var denom=1-IPOC_RATE-(comPct/100)-(mgDeseado/100);
       if(denom>0.01){
-        var pObjRaw=Math.ceil((foodCost+emp+extraPrime)/denom/100)*100; // redondear a centena
+        var pObjRaw=Math.ceil((foodCost+emp+extraPrime)/denom/100)*100;
         precioObjRappi=fmtF(pObjRaw);
         var pObjNeto=Math.round(pObjRaw*(1-IPOC_RATE));
         var comObj=Math.round(pObjRaw*(comPct/100));
-        mgObjAmt=fmtF(Math.round(pObjNeto-foodCost-comObj-emp-extraPrime));
+        var mgAmt=pObjNeto-foodCost-comObj-emp-extraPrime;
+        mgObjAmt=fmtF(Math.round(mgAmt));
         comObjStr=fmtF(comObj);
       } else {
         precioObjRappi='Inviable';
@@ -962,7 +970,8 @@ function recalcRappi(){
     var com=Math.round(p.precio*(comPct/100));
     var extra=inclPrime?primeCosto:0;
     var mg=pn-p.costo-com-emp-extra;
-    sumMg+=pn?mg/pn*100:0;
+    // Promedio sobre precio carta
+    sumMg+=p.precio?mg/p.precio*100:0;
   });
   var avgEl=document.getElementById('rappi-avg-mg');
   if(avgEl)avgEl.textContent=platosConDatos.length?(sumMg/platosConDatos.length).toFixed(1)+'%':'—';
@@ -997,8 +1006,9 @@ function buildCostosTable(){
     var precioNeto=p.precio?Math.round(p.precio*(1-IPOC_RATE)):0;
     var ipocVal=p.precio?Math.round(p.precio*IPOC_RATE):0;
     var mg=precioNeto&&p.costo?precioNeto-p.costo:0;
-    var mgP=precioNeto&&p.costo?((precioNeto-p.costo)/precioNeto*100).toFixed(1):'—';
-    var cls=!p.costo?'tgr':parseFloat(mgP)<30?'tr':parseFloat(mgP)<60?'ta':'tg';
+    // Margen % sobre precio CARTA (denominador = precio carta, no precio neto)
+    var mgP=p.precio&&p.costo?((precioNeto-p.costo)/p.precio*100).toFixed(1):'—';
+    var cls=!p.costo?'tgr':parseFloat(mgP)<30?'tr':parseFloat(mgP)<55?'ta':'tg';
     html+='<tr id="crow-'+i+'"><td>'+p.nombre+nota+'</td><td><span class="ec" contenteditable="true" oninput="recalcRow(this,'+i+',\'c\')" id="ec-'+i+'">'+(p.costo||0)+'</span></td><td><span class="ec" contenteditable="true" oninput="recalcRow(this,'+i+',\'p\')" id="ep-'+i+'">'+(p.precio||0)+'</span></td><td style="color:#991b1b;font-size:11px">-'+fmtF(ipocVal)+'</td><td style="font-weight:500">'+fmtF(precioNeto)+'</td><td id="cmg-'+i+'">'+(mg?fmtF(mg):'—')+'</td><td id="cpct-'+i+'"><span class="tag '+cls+'">'+(mgP!=='—'?mgP+'%':'—')+'</span></td><td><button onclick="deleteProducto('+i+')" style="padding:2px 8px;font-size:10px;background:rgba(220,38,38,0.08);color:#dc2626;border:.5px solid rgba(220,38,38,0.3);border-radius:4px;cursor:pointer">✕</button></td></tr>';
   });
   tbody.innerHTML=html;
@@ -1015,8 +1025,9 @@ function recalcRow(el,i){
   if(ci>=0)COMBOS[ci].costo=c;
   var pNeto=Math.round(p*(1-IPOC_RATE));
   var mg=pNeto&&c?pNeto-c:0;
-  var mgP=pNeto&&c?((pNeto-c)/pNeto*100).toFixed(1):'—';
-  var cls=!c?'tgr':parseFloat(mgP)<30?'tr':parseFloat(mgP)<60?'ta':'tg';
+  // Margen % sobre precio carta
+  var mgP=p&&c?((pNeto-c)/p*100).toFixed(1):'—';
+  var cls=!c?'tgr':parseFloat(mgP)<30?'tr':parseFloat(mgP)<55?'ta':'tg';
   document.getElementById('cmg-'+i).textContent=mg?fmtF(mg):'—';
   document.getElementById('cpct-'+i).innerHTML='<span class="tag '+cls+'">'+(mgP!=='—'?mgP+'%':'—')+'</span>';
   updateMargenesChart();
@@ -1046,7 +1057,8 @@ function buildCombos(){
       var pVNeto=pV?Math.round(pV*(1-IPOC_RATE)):0;
       var cc=p.costo+pC;
       var mg=p.costo&&pVNeto?pVNeto-cc:0;
-      var mgP=p.costo&&pVNeto?((pVNeto-cc)/pVNeto*100).toFixed(1):'—';
+      // Margen % sobre precio carta combo
+      var mgP=p.costo&&pV?((pVNeto-cc)/pV*100).toFixed(1):'—';
       var cls=!p.costo?'tgr':parseFloat(mgP)<30?'tr':parseFloat(mgP)<60?'ta':'tg';
       var sc=!p.costo?'<br><span style="font-size:10px;color:var(--am)">Sin costeo</span>':'';
       return'<tr><td>'+p.nombre+sc+'</td><td>'+(p.costo?fmtF(p.costo):'—')+'</td><td>'+fmtF(pC)+'</td><td>'+(p.costo?fmtF(cc):'—')+'</td><td>'+fmtF(pV)+'<br><span style="font-size:10px;color:#991b1b">Neto: '+fmtF(pVNeto)+'</span></td><td>'+(p.costo?fmtF(mg):'—')+'</td><td><span class="tag '+cls+'">'+(mgP!=='—'?mgP+'%':'—')+'</span></td></tr>';
@@ -1196,7 +1208,7 @@ function updateMargenesChart(){
   if(CH.marg)CH.marg.destroy();
   var el=document.getElementById('ch-marg');
   if(!el)return;
-  var data=pl.map(function(p){var pN=Math.round(p.precio*(1-IPOC_RATE));return pN?((pN-p.costo)/pN*100):0;});
+  var data=pl.map(function(p){var pN=Math.round(p.precio*(1-IPOC_RATE));return p.precio?((pN-p.costo)/p.precio*100):0;});
   CH.marg=new Chart(el,{type:'bar',data:{labels:pl.map(function(p){return p.nombre.replace('Hamburguesa ','');}),datasets:[{data:data,backgroundColor:data.map(function(v){return v<30?'#E24B4A':v<60?'#BA7517':CATUI[pl[data.indexOf(v)]&&pl[data.indexOf(v)].cat]||'#1D9E75';}),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{max:100,ticks:{callback:function(v){return v+'%';}}}}}});
 }
 
@@ -1262,9 +1274,9 @@ function recalcPE(){
 
   var platosConDatos=PLATOS.filter(function(p){return p.costo>0&&p.precio>0;});
   // Food cost % se calcula sobre precio NETO (después de ipoconsumo)
+  // Food cost % sobre precio carta
   var fcProm=platosConDatos.length?platosConDatos.reduce(function(s,p){
-    var pN=Math.round(p.precio*(1-IPOC_RATE));
-    return s+(pN?p.costo/pN:0);
+    return s+(p.precio?p.costo/p.precio:0);
   },0)/platosConDatos.length:0.3;
 
   var ticketEl=document.getElementById('pe-ticket');
