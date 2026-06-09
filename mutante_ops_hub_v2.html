@@ -107,6 +107,7 @@ input:focus,select:focus{outline:none;border-color:var(--ac)}
     <div class="nav" onclick="sw('proveedores',this)">◻ Proveedores / CxP</div>
     <div class="nav" onclick="sw('costos',this)">% Costos y Márgenes</div>
     <div class="nav" onclick="sw('rappi',this)">🛵 Análisis Rappi</div>
+    <div class="nav" onclick="sw('pyg',this)">📊 P&G / Financiero</div>
     <div class="nav" onclick="sw('rutinas',this)">✓ Rutinas</div>
   </nav>
   <button class="sbt" id="syncbtn" onclick="syncData()"><span id="syncicon">↻</span> Actualizar desde Drive</button>
@@ -459,6 +460,120 @@ input:focus,select:focus{outline:none;border-color:var(--ac)}
 </div>
 
 <!-- RUTINAS -->
+<!-- PYG -->
+<div class="panel" id="panel-pyg">
+  <p class="pt">P&amp;G — Estado de Resultados</p>
+
+  <!-- HEADER: mes selector + CSV upload -->
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="font-size:12px;color:var(--mu)">Mes:</label>
+      <select id="pyg-mes" onchange="renderPYG()" style="font-size:12px;padding:5px 10px">
+        <option value="2026-03">Marzo 2026</option>
+        <option value="2026-04">Abril 2026</option>
+        <option value="2026-05" selected>Mayo 2026</option>
+        <option value="2026-06">Junio 2026</option>
+      </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="font-size:12px;color:var(--mu)">CSV Bancolombia:</label>
+      <input type="file" id="csv-upload" accept=".csv" onchange="loadCSV(this)" style="font-size:11px"/>
+    </div>
+    <span id="csv-status" style="font-size:11px;color:var(--gn)"></span>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+      <label style="font-size:11px;color:var(--mu)">Arriendo variable La Pala ($):</label>
+      <span class="ec" contenteditable="true" id="pyg-arriendo" onblur="renderPYG()" style="min-width:80px;font-size:12px">1200000</span>
+    </div>
+  </div>
+
+  <div class="al aw" id="pyg-alertas" style="display:none"></div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+
+    <!-- COLUMNA IZQUIERDA: P&G -->
+    <div>
+      <div class="card" style="padding:0">
+        <table style="width:100%">
+          <thead><tr style="background:var(--ac)">
+            <th style="padding:10px 14px;color:var(--bg);font-size:12px;font-weight:600;text-align:left">CONCEPTO</th>
+            <th style="padding:10px 14px;color:var(--bg);font-size:12px;font-weight:600;text-align:right">VALOR</th>
+            <th style="padding:10px 14px;color:var(--bg);font-size:12px;font-weight:600;text-align:right">%</th>
+          </tr></thead>
+          <tbody id="pyg-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- COLUMNA DERECHA: indicadores + provisiones + calendario -->
+    <div>
+      <!-- KPIs -->
+      <div class="card">
+        <div class="ct">Indicadores clave del mes</div>
+        <div id="pyg-kpis" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+
+      <!-- Provisiones y fondo -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <span class="ct" style="margin:0">Fondo de provisiones</span>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px">
+            <span style="color:var(--mu)">Saldo fondo ($):</span>
+            <span class="ec" contenteditable="true" id="fondo-saldo" onblur="renderFondo()" style="min-width:60px;font-weight:600">40000</span>
+          </div>
+        </div>
+        <div id="fondo-rows" style="display:flex;flex-direction:column;gap:5px"></div>
+        <div style="margin-top:10px;padding-top:8px;border-top:.5px solid var(--b)">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+            <span style="color:var(--mu)">Progreso fondo</span>
+            <span id="fondo-pct" style="font-weight:500"></span>
+          </div>
+          <div class="pb"><div class="pf" id="fondo-bar" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <!-- Calendario tributario -->
+      <div class="card">
+        <div class="ct">Calendario tributario 2026 — NIT termina en 8</div>
+        <div id="cal-tbody" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+
+      <!-- Conciliacion bancaria -->
+      <div class="card">
+        <div class="ct">Conciliación bancaria — <span id="conc-mes-label">mes seleccionado</span></div>
+        <div id="conc-rows" style="font-size:12px"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TENDENCIAS -->
+  <div class="card" style="margin-top:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <span class="ct" style="margin:0">Tendencias históricas</span>
+      <select id="tend-indicador" onchange="renderTendencias()" style="font-size:11px;padding:3px 8px">
+        <option value="ventas">Ventas netas</option>
+        <option value="food_cost">Food cost %</option>
+        <option value="ub">Utilidad bruta</option>
+        <option value="uo">Utilidad operacional</option>
+        <option value="un">Utilidad neta</option>
+        <option value="ebitda">EBITDA</option>
+      </select>
+    </div>
+    <div class="cht"><canvas id="ch-tend"></canvas></div>
+  </div>
+
+  <!-- Flujo de caja -->
+  <div class="card" style="margin-top:14px">
+    <div class="ct">Flujo de caja mensual</div>
+    <div class="tw">
+      <table><thead>
+        <tr><th>Concepto</th><th>Marzo</th><th>Abril</th><th>Mayo</th><th>Junio</th></tr>
+      </thead><tbody id="flujo-tbody"></tbody></table>
+    </div>
+  </div>
+
+</div>
+
 <div class="panel" id="panel-rutinas">
   <p class="pt">Rutinas de control</p>
   <div class="two">
@@ -578,6 +693,7 @@ window.onload=function(){
     if(c){DATA=JSON.parse(c);renderAll(DATA);}
     syncData();
   }
+  renderCalendario();
 };
 
 function saveUrl(){
@@ -630,6 +746,8 @@ function renderAll(d){
   renderPrimeCost(d);
   recalcPE();
   recalcRappi();
+  renderPYG();
+  renderCalendario();
 }
 
 function renderDash(d){
@@ -1088,6 +1206,7 @@ function initCharts(){
   CH.diario=new Chart(document.getElementById('ch-diario'),{type:'line',data:{labels:[],datasets:[{label:'Ventas',data:[],borderColor:PAL[1],backgroundColor:'rgba(55,138,221,0.1)',fill:true,tension:0.3,pointRadius:2,borderWidth:1.5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return'$'+Math.round(v/1e3)+'K';}}}}}});
   CH.ventas=new Chart(document.getElementById('ch-ventas'),{type:'line',data:{labels:[],datasets:[{label:'Ventas',data:[],borderColor:PAL[1],backgroundColor:'rgba(55,138,221,0.1)',fill:true,tension:0.3,pointRadius:2,borderWidth:1.5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return'$'+Math.round(v/1e3)+'K';}}}}}});
   updateMargenesChart();
+  CH.tend=new Chart(document.createElement('canvas'),{type:'line',data:{labels:[],datasets:[{label:'',data:[],borderColor:PAL[1],backgroundColor:'rgba(55,138,221,0.1)',fill:true,tension:0.4,pointRadius:4,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return '$'+(v/1e6).toFixed(1)+'M';}}}}}}); // placeholder, real canvas assigned in renderTendencias
   CH.pe=new Chart(document.getElementById('ch-pe'),{
     type:'bar',
     data:{labels:[],datasets:[
@@ -1563,6 +1682,7 @@ function initCharts(){
   CH.diario=new Chart(document.getElementById('ch-diario'),{type:'line',data:{labels:[],datasets:[{label:'Ventas',data:[],borderColor:PAL[1],backgroundColor:'rgba(55,138,221,0.1)',fill:true,tension:0.3,pointRadius:2,borderWidth:1.5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return'$'+Math.round(v/1e3)+'K';}}}}}});
   CH.ventas=new Chart(document.getElementById('ch-ventas'),{type:'line',data:{labels:[],datasets:[{label:'Ventas',data:[],borderColor:PAL[1],backgroundColor:'rgba(55,138,221,0.1)',fill:true,tension:0.3,pointRadius:2,borderWidth:1.5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return'$'+Math.round(v/1e3)+'K';}}}}}});
   updateMargenesChart();
+  CH.tend=new Chart(document.createElement('canvas'),{type:'line',data:{labels:[],datasets:[{label:'',data:[],borderColor:PAL[1],backgroundColor:'rgba(55,138,221,0.1)',fill:true,tension:0.4,pointRadius:4,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return '$'+(v/1e6).toFixed(1)+'M';}}}}}}); // placeholder, real canvas assigned in renderTendencias
   CH.pe=new Chart(document.getElementById('ch-pe'),{
     type:'bar',
     data:{labels:[],datasets:[
@@ -1710,6 +1830,396 @@ function addProducto(){
   document.getElementById('np-costo').value='';
   document.getElementById('np-precio').value='';
 }
+
+
+// ═══════════════════════════════════════════════════════════════
+// P&G — FINANCIAL MODULE
+// ═══════════════════════════════════════════════════════════════
+
+// Salario base para provisiones
+var SALARIO_BASE = 2500428;
+var PROV_PRIMA    = SALARIO_BASE * 0.0833;  // 208,286
+var PROV_CES      = SALARIO_BASE * 0.0833;  // 208,286
+var PROV_INT_CES  = SALARIO_BASE * 0.01;    // 25,004
+var PROV_VAC      = SALARIO_BASE * 0.0417;  // 104,268
+var PROV_TOTAL_MES = PROV_PRIMA + PROV_CES + PROV_INT_CES + PROV_VAC; // ~545,843
+
+// CSV data parsed
+var CSV_DATA = {};  // keyed by 'YYYY-MM'
+
+// P&G data per month - built from Drive data
+function buildPYGData(mes) {
+  if (!DATA) return null;
+  var eg = (DATA.egresos || []).filter(function(r){ return String(r.fecha).substring(0,7) === mes; });
+  var ing = (DATA.ingresos || []).filter(function(r){ return String(r.fecha).substring(0,7) === mes; });
+
+  var ventasBrutas = ing.reduce(function(s,r){return s+r.total;},0);
+  var ipoconsumo   = Math.round(ventasBrutas * IPOC_RATE);
+  var ventasNetas  = ventasBrutas - ipoconsumo;
+
+  // COMPRAS ALIMENTOS = PROVEEDORES category
+  var comprasAlimentos = eg.filter(function(r){return r.categoria==='PROVEEDORES';}).reduce(function(s,r){return s+r.total;},0);
+  var utilidadBruta = ventasNetas - comprasAlimentos;
+
+  // GASTOS FUNCIONAMIENTO
+  var nomina    = eg.filter(function(r){return r.categoria==='NOMINA';}).reduce(function(s,r){return s+r.total;},0);
+  var segSocial = eg.filter(function(r){return r.categoria==='SEGURIDAD SOCIAL';}).reduce(function(s,r){return s+r.total;},0);
+  var arriendo  = eg.filter(function(r){return r.categoria==='ARRIENDO LAPALA'||r.categoria==='PAGO ARRIENDO';}).reduce(function(s,r){return s+r.total;},0);
+  var gas       = eg.filter(function(r){return r.categoria==='GAS';}).reduce(function(s,r){return s+r.total;},0);
+  var redes     = eg.filter(function(r){return r.categoria==='REDES';}).reduce(function(s,r){return s+r.total;},0);
+  var contab    = eg.filter(function(r){return r.categoria==='CONTABILIDAD';}).reduce(function(s,r){return s+r.total;},0);
+  var empaques  = eg.filter(function(r){return r.categoria==='EMPAQUES';}).reduce(function(s,r){return s+r.total;},0);
+  var propinas  = eg.filter(function(r){return r.categoria==='PROPINAS';}).reduce(function(s,r){return s+r.total;},0);
+  var comprasMenores = eg.filter(function(r){return r.categoria==='COMPRAS';}).reduce(function(s,r){return s+r.total;},0);
+  var eventosApoyo = eg.filter(function(r){return r.categoria==='APOYO A EVENTOS'||r.categoria==='SERVICIOS ADICIONALES';}).reduce(function(s,r){return s+r.total;},0);
+
+  var totalGastosFuncionamiento = nomina + segSocial + arriendo + gas + redes + contab + empaques + comprasMenores + eventosApoyo;
+  // Nota: propinas se excluyen del P&G (no son costo del negocio)
+
+  var utilidadOperacional = utilidadBruta - totalGastosFuncionamiento;
+
+  // GASTOS FINANCIEROS (del CSV si existe)
+  var gastosBancarios = 0;
+  var csvMes = CSV_DATA[mes];
+  if (csvMes) {
+    gastosBancarios = (csvMes.gmf || 0) + (csvMes.cuotaManejo || 0);
+  }
+  var ebitda = utilidadOperacional + gastosBancarios; // EBITDA = EBIT + depreciaciones (aqui no hay dep.)
+
+  // PROVISIONES (debajo de utilidad operacional — no afectan UO)
+  var provNomina   = PROV_TOTAL_MES;
+  var provIpoc     = Math.round(ventasBrutas * IPOC_RATE); // = ipoconsumo del mes
+  var provRenta    = Math.max(0, Math.round(utilidadOperacional * 0.35 / 12)); // provisional mensual
+  var totalProvisiones = provNomina + provIpoc + provRenta;
+
+  var utilidadAntesImp = utilidadOperacional - gastosBancarios;
+  var utilidadNeta = utilidadAntesImp - totalProvisiones;
+
+  // FLUJO DE CAJA
+  var ingresosCuenta = csvMes ? csvMes.totalQR + (csvMes.consignaciones||0) : ventasNetas;
+  var egresosCuenta  = eg.filter(function(r){
+    return r.categoria !== 'CONSIGNACION EFECTIVO' && r.categoria !== 'PROVISION NOMINA';
+  }).reduce(function(s,r){return s+r.total;},0);
+
+  return {
+    mes: mes,
+    ventasBrutas: ventasBrutas,
+    ipoconsumo: ipoconsumo,
+    ventasNetas: ventasNetas,
+    comprasAlimentos: comprasAlimentos,
+    utilidadBruta: utilidadBruta,
+    margenBruto: ventasNetas ? utilidadBruta/ventasNetas : 0,
+    nomina: nomina, segSocial: segSocial, arriendo: arriendo, gas: gas,
+    redes: redes, contab: contab, empaques: empaques,
+    comprasMenores: comprasMenores, eventosApoyo: eventosApoyo,
+    propinas: propinas,
+    totalGastosFuncionamiento: totalGastosFuncionamiento,
+    utilidadOperacional: utilidadOperacional,
+    margenOperacional: ventasNetas ? utilidadOperacional/ventasNetas : 0,
+    ebitda: ebitda,
+    gastosBancarios: gastosBancarios,
+    provNomina: provNomina,
+    provIpoc: provIpoc,
+    provRenta: provRenta,
+    totalProvisiones: totalProvisiones,
+    utilidadNeta: utilidadNeta,
+    margenNeto: ventasNetas ? utilidadNeta/ventasNetas : 0,
+    foodCostPct: ventasNetas ? comprasAlimentos/ventasNetas : 0,
+    laborCostPct: ventasNetas ? (nomina+segSocial)/ventasNetas : 0,
+    ingresosCuenta: ingresosCuenta,
+    egresosCuenta: egresosCuenta,
+  };
+}
+
+function renderPYG() {
+  var mes = document.getElementById('pyg-mes') ? document.getElementById('pyg-mes').value : '2026-05';
+  var d = buildPYGData(mes);
+  if (!d) return;
+
+  var arriendoInput = document.getElementById('pyg-arriendo');
+  if (arriendoInput && d.arriendo === 0) {
+    // If no arriendo registered, use manual input
+    d.arriendo = parseFloat(arriendoInput.textContent.replace(/[^0-9]/g,''))||1200000;
+    d.totalGastosFuncionamiento += d.arriendo;
+    d.utilidadOperacional = d.utilidadBruta - d.totalGastosFuncionamiento;
+    d.ebitda = d.utilidadOperacional;
+    d.utilidadNeta = d.utilidadOperacional - d.gastosBancarios - d.totalProvisiones;
+  }
+
+  var vn = d.ventasNetas || 1;
+  function pct(v){ return v ? ((v/vn)*100).toFixed(1)+'%' : '—'; }
+  function row(label, val, pctVal, style, indent) {
+    var bold = style === 'bold';
+    var sep  = style === 'sep';
+    var neg  = val < 0;
+    var colVal = neg ? 'color:#dc2626' : (bold ? 'color:var(--tx);font-weight:600' : 'color:var(--mu)');
+    if (sep) return '<tr><td colspan="3" style="padding:4px 14px;background:rgba(0,0,0,0.04);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--hi)">' + label + '</td></tr>';
+    var indentStyle = indent ? 'padding-left:'+(14+indent*12)+'px' : 'padding-left:14px';
+    return '<tr style="border-bottom:.5px solid var(--b)">'
+      + '<td style="padding:7px 14px 7px 0;'+indentStyle+';font-size:12px;'+(bold?'font-weight:600;color:var(--tx)':'color:var(--mu)')+'">'+label+'</td>'
+      + '<td style="padding:7px 14px;text-align:right;font-size:12px;'+colVal+'">'+(val!==0?fmtF(Math.round(Math.abs(val))):val===0?'$0':'—')+(neg&&val!==0?' ▼':'')+'</td>'
+      + '<td style="padding:7px 14px;text-align:right;font-size:11px;color:var(--hi)">'+pctVal+'</td>'
+      + '</tr>';
+  }
+
+  var rows = [
+    row('INGRESOS','','','sep'),
+    row('Ventas brutas', d.ventasBrutas, pct(d.ventasBrutas), 'normal', 1),
+    row('(-) Impoconsumo 8%', -d.ipoconsumo, '-'+pct(d.ipoconsumo), 'normal', 1),
+    row('VENTAS NETAS', d.ventasNetas, '100%', 'bold'),
+    row('','','','sep'),
+    row('COSTO DE VENTAS','','','sep'),
+    row('(-) Compras a proveedores', -d.comprasAlimentos, '-'+pct(d.comprasAlimentos), 'normal', 1),
+    row('UTILIDAD BRUTA', d.utilidadBruta, pct(d.utilidadBruta), 'bold'),
+    row('','','','sep'),
+    row('GASTOS DE FUNCIONAMIENTO','','','sep'),
+    row('Nómina', -d.nomina, '-'+pct(d.nomina), 'normal', 1),
+    row('Seguridad Social', -d.segSocial, '-'+pct(d.segSocial), 'normal', 1),
+    row('Arriendo La Pala', -d.arriendo, '-'+pct(d.arriendo), 'normal', 1),
+    row('Gas', -d.gas, '-'+pct(d.gas), 'normal', 1),
+    row('Redes + Pauta', -d.redes, '-'+pct(d.redes), 'normal', 1),
+    row('Contabilidad', -d.contab, '-'+pct(d.contab), 'normal', 1),
+    row('Empaques', -d.empaques, '-'+pct(d.empaques), 'normal', 1),
+    row('Compras menores', -d.comprasMenores, '-'+pct(d.comprasMenores), 'normal', 1),
+    row('Apoyo eventos / servicios', -d.eventosApoyo, '-'+pct(d.eventosApoyo), 'normal', 1),
+    row('TOTAL GASTOS FUNCIONAMIENTO', -d.totalGastosFuncionamiento, '-'+pct(d.totalGastosFuncionamiento), 'bold'),
+    row('','','','sep'),
+    row('UTILIDAD OPERACIONAL (EBIT)', d.utilidadOperacional, pct(d.utilidadOperacional), 'bold'),
+    row('EBITDA', d.ebitda, pct(d.ebitda), 'normal'),
+    row('','','','sep'),
+    row('GASTOS FINANCIEROS','','','sep'),
+    row('(-) GMF 4x1000 + cuota manejo', -d.gastosBancarios, '-'+pct(d.gastosBancarios), 'normal', 1),
+    row('','','','sep'),
+    row('PROVISIONES (∗ no afectan UO)','','','sep'),
+    row('Prov. prestaciones nómina', -d.provNomina, '-'+pct(d.provNomina), 'normal', 1),
+    row('Prov. impoconsumo bimestral', -d.provIpoc, '-'+pct(d.provIpoc), 'normal', 1),
+    row('Prov. renta (estimado mensual)', -d.provRenta, '-'+pct(d.provRenta), 'normal', 1),
+    row('TOTAL PROVISIONES', -d.totalProvisiones, '-'+pct(d.totalProvisiones), 'bold'),
+    row('','','','sep'),
+    row('UTILIDAD NETA', d.utilidadNeta, pct(d.utilidadNeta), 'bold'),
+  ];
+
+  var tbody = document.getElementById('pyg-tbody');
+  if (tbody) tbody.innerHTML = rows.join('');
+
+  // KPIs
+  var kpiEl = document.getElementById('pyg-kpis');
+  if (kpiEl) {
+    var kpis = [
+      {l:'Ventas netas', v:fmtF(d.ventasNetas), sub:''},
+      {l:'Food cost %', v:(d.foodCostPct*100).toFixed(1)+'%', sub: d.foodCostPct>0.35?'⚠ Alto (>35%)':'✓ Ok'},
+      {l:'Labor cost %', v:(d.laborCostPct*100).toFixed(1)+'%', sub:'Nómina+SS / ventas netas'},
+      {l:'Margen bruto', v:(d.margenBruto*100).toFixed(1)+'%', sub:''},
+      {l:'Margen operacional', v:(d.margenOperacional*100).toFixed(1)+'%', sub: d.utilidadOperacional<0?'⚠ NEGATIVO':''},
+      {l:'Margen neto', v:(d.margenNeto*100).toFixed(1)+'%', sub:'Incluye provisiones'},
+      {l:'EBITDA', v:fmtF(d.ebitda), sub:''},
+      {l:'Prime cost', v:((d.foodCostPct+d.laborCostPct)*100).toFixed(1)+'%', sub:'Food+labor. Meta <60%'},
+    ];
+    kpiEl.innerHTML = kpis.map(function(k){
+      var isWarn = k.sub && k.sub.indexOf('⚠')>=0;
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:.5px solid var(--b)">'
+        +'<span style="font-size:12px;color:var(--mu)">'+k.l+'</span>'
+        +'<div style="text-align:right"><span style="font-size:13px;font-weight:500;color:'+(isWarn?'#dc2626':'var(--tx)')+'">'+k.v+'</span>'
+        +(k.sub?'<br><span style="font-size:10px;color:'+(isWarn?'#dc2626':'var(--hi)')+'">'+k.sub+'</span>':'')
+        +'</div></div>';
+    }).join('');
+  }
+
+  // Conciliacion
+  renderConciliacion(mes, d);
+  renderFondo();
+  renderTendencias();
+  renderFlujo();
+
+  // Alertas
+  var alertas = [];
+  if (d.utilidadOperacional < 0) alertas.push('⚠ Utilidad operacional negativa en '+mes);
+  if (d.foodCostPct > 0.45) alertas.push('⚠ Food cost '+( d.foodCostPct*100).toFixed(1)+'% — muy alto, revisar compras');
+  var alertEl = document.getElementById('pyg-alertas');
+  if (alertEl) {
+    if (alertas.length) { alertEl.style.display='flex'; alertEl.innerHTML = alertas.join('<br>'); }
+    else alertEl.style.display = 'none';
+  }
+}
+
+function renderConciliacion(mes, d) {
+  var csvMes = CSV_DATA[mes];
+  var ingrSheet = DATA ? (DATA.ingresos||[]).filter(function(r){return String(r.fecha).substring(0,7)===mes;}).reduce(function(s,r){return s+r.qr;},0) : 0;
+  var ingrCSV = csvMes ? csvMes.totalQR : 0;
+  var diff = ingrSheet - ingrCSV;
+  var lbl = document.getElementById('conc-mes-label');
+  if (lbl) lbl.textContent = mes;
+  var el = document.getElementById('conc-rows');
+  if (!el) return;
+  var rows = [
+    {l:'QR/Transfer registrado en Sheet', v:ingrSheet, style:''},
+    {l:'QR recibido en cuenta (CSV)', v:ingrCSV, style: csvMes?'':'color:var(--hi)'},
+    {l:'Diferencia', v:diff, style: Math.abs(diff)>50000?'color:#dc2626;font-weight:600':'color:var(--gn);font-weight:600'},
+    {l:'GMF 4x1000 cobrado', v:-(csvMes?csvMes.gmf:0), style:'color:#dc2626'},
+    {l:'Cuota manejo', v:-(csvMes?csvMes.cuotaManejo:0), style:'color:#dc2626'},
+    {l:'Intereses ganados', v:csvMes?csvMes.intereses:0, style:'color:var(--gn)'},
+  ];
+  el.innerHTML = rows.map(function(r){
+    return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:.5px solid var(--b)">'
+      +'<span style="font-size:12px;color:var(--mu)">'+r.l+'</span>'
+      +'<span style="font-size:12px;'+r.style+'">'+fmtF(Math.round(Math.abs(r.v)))+(r.v<0?' ▼':'')+'</span>'
+      +'</div>';
+  }).join('') + (csvMes?'':'<div style="font-size:11px;color:var(--hi);margin-top:6px">Sube el CSV para conciliar este mes</div>');
+}
+
+function renderFondo() {
+  var el = document.getElementById('fondo-rows');
+  if (!el || !DATA) return;
+  var meses = ['2026-03','2026-04','2026-05'];
+  var mesActual = document.getElementById('pyg-mes') ? document.getElementById('pyg-mes').value : '2026-05';
+  var mesesHasta = meses.filter(function(m){return m<=mesActual;});
+  var totalObjetivo = mesesHasta.length * PROV_TOTAL_MES;
+  var saldoActual = parseFloat(document.getElementById('fondo-saldo') ? document.getElementById('fondo-saldo').textContent.replace(/[^0-9]/g,'') : 40000) || 40000;
+  var faltante = totalObjetivo - saldoActual;
+  var prov = [
+    {l:'Prima (8.33% × '+mesesHasta.length+' mes)', v: PROV_PRIMA * mesesHasta.length},
+    {l:'Cesantías (8.33%)', v: PROV_CES * mesesHasta.length},
+    {l:'Int. cesantías (1%)', v: PROV_INT_CES * mesesHasta.length},
+    {l:'Vacaciones (4.17%)', v: PROV_VAC * mesesHasta.length},
+  ];
+  el.innerHTML = prov.map(function(p){
+    return '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px">'
+      +'<span style="color:var(--mu)">'+p.l+'</span>'
+      +'<span style="font-weight:500">'+fmtF(Math.round(p.v))+'</span>'
+      +'</div>';
+  }).join('')
+  + '<div style="border-top:.5px solid var(--b);margin-top:6px;padding-top:6px">'
+  + '<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600"><span>Total objetivo</span><span>'+fmtF(Math.round(totalObjetivo))+'</span></div>'
+  + '<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mu)">Saldo actual</span><span style="color:var(--gn)">'+fmtF(saldoActual)+'</span></div>'
+  + '<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;color:#dc2626"><span>⚠ Faltante</span><span>'+fmtF(Math.round(faltante))+'</span></div>'
+  + '</div>';
+  var pctFondo = Math.min(100, Math.round(saldoActual/totalObjetivo*100));
+  var barEl = document.getElementById('fondo-bar');
+  if (barEl) { barEl.style.width=pctFondo+'%'; barEl.style.background=pctFondo>=80?'var(--gn)':pctFondo>=40?'var(--am)':'var(--rd)'; }
+  var pctEl = document.getElementById('fondo-pct');
+  if (pctEl) pctEl.textContent = pctFondo+'% del objetivo';
+}
+
+function renderTendencias() {
+  if (!DATA) return;
+  var meses = ['2026-03','2026-04','2026-05'];
+  var indic = document.getElementById('tend-indicador') ? document.getElementById('tend-indicador').value : 'ventas';
+  var data = meses.map(function(m){
+    var d = buildPYGData(m);
+    if (!d) return 0;
+    var map = {ventas: d.ventasNetas, food_cost: d.foodCostPct*100, ub: d.utilidadBruta, uo: d.utilidadOperacional, un: d.utilidadNeta, ebitda: d.ebitda};
+    return map[indic] || 0;
+  });
+  var labels = ['Mar 2026','Abr 2026','May 2026'];
+  var isPercent = indic === 'food_cost';
+  var canvas = document.getElementById('ch-tend');
+  if (!canvas) return;
+  if (CH.tend && CH.tend.canvas === canvas) {
+    CH.tend.data.labels = labels;
+    CH.tend.data.datasets[0].data = data;
+    CH.tend.options.scales.y.ticks.callback = isPercent ? function(v){return v+'%';} : function(v){return '$'+(v/1e6).toFixed(1)+'M';};
+    CH.tend.update();
+  } else {
+    if (CH.tend) CH.tend.destroy();
+    CH.tend = new Chart(canvas, {
+      type:'line',
+      data:{labels:labels, datasets:[{label:indic, data:data, borderColor:PAL[1], backgroundColor:'rgba(55,138,221,0.1)', fill:true, tension:0.4, pointRadius:5, borderWidth:2}]},
+      options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{ticks:{callback: isPercent ? function(v){return v+'%';} : function(v){return '$'+(v/1e6).toFixed(1)+'M';}}}}}
+    });
+  }
+}
+
+function renderFlujo() {
+  var el = document.getElementById('flujo-tbody');
+  if (!el || !DATA) return;
+  var meses = ['2026-03','2026-04','2026-05','2026-06'];
+  var conceptos = [
+    {l:'(+) Ingresos cuenta', fn: function(d){return d ? d.ingresosCuenta : 0;}},
+    {l:'(-) Egresos operativos', fn: function(d){return d ? -d.egresosCuenta : 0;}},
+    {l:'(-) Provisión al fondo', fn: function(d){return -PROV_TOTAL_MES;}},
+    {l:'(-) Gastos bancarios', fn: function(d){return d ? -d.gastosBancarios : 0;}},
+    {l:'= Flujo neto del mes', fn: function(d){return d ? d.ingresosCuenta - d.egresosCuenta - PROV_TOTAL_MES - d.gastosBancarios : -PROV_TOTAL_MES;}, bold:true},
+  ];
+  el.innerHTML = conceptos.map(function(c){
+    var cells = meses.map(function(m){
+      var d = buildPYGData(m);
+      var v = c.fn(d);
+      var col = v < 0 ? 'color:#dc2626' : (v > 0 ? 'color:var(--gn)' : 'color:var(--hi)');
+      return '<td style="padding:6px 9px;text-align:right;font-size:12px;border-bottom:.5px solid var(--b);'+col+(c.bold?';font-weight:600':'')+'">'+fmtF(Math.round(Math.abs(v)))+(v<0?' ▼':'')+'</td>';
+    }).join('');
+    return '<tr><td style="padding:6px 9px;font-size:12px;'+(c.bold?'font-weight:600;color:var(--tx)':'color:var(--mu)')+';border-bottom:.5px solid var(--b)">'+c.l+'</td>'+cells+'</tr>';
+  }).join('');
+}
+
+// Calendar tributario
+function renderCalendario() {
+  var el = document.getElementById('cal-tbody');
+  if (!el) return;
+  var today = new Date('2026-06-09');
+  var eventos = [
+    {fecha:'2026-05-19', oblig:'Impoconsumo Bim. Mar-Abr (Form. 310)', monto:'~$2.257.498', status:'vencido'},
+    {fecha:'2026-06-19', oblig:'Retención en la fuente Mayo (Form. 350)', monto:'Variable', status:'proximo'},
+    {fecha:'2026-07-20', oblig:'Impoconsumo Bim. May-Jun (Form. 310)', monto:'~$2.1M estimado', status:'futuro'},
+    {fecha:'2026-07-19', oblig:'Retención en la fuente Junio (Form. 350)', monto:'Variable', status:'futuro'},
+    {fecha:'2026-08-19', oblig:'Retención en la fuente Julio (Form. 350)', monto:'Variable', status:'futuro'},
+    {fecha:'2026-09-19', oblig:'Impoconsumo Bim. Jul-Ago (Form. 310)', monto:'Variable', status:'futuro'},
+    {fecha:'2026-11-19', oblig:'Impoconsumo Bim. Sep-Oct (Form. 310)', monto:'Variable', status:'futuro'},
+    {fecha:'2027-01-19', oblig:'Impoconsumo Bim. Nov-Dic (Form. 310)', monto:'Variable', status:'futuro'},
+    {fecha:'2027-05-26', oblig:'Renta año gravable 2026 (Form. 110)', monto:'Por calcular', status:'futuro'},
+  ];
+  var COLS = {vencido:'#fee2e2', proximo:'#fef3c7', futuro:'rgba(0,0,0,0.02)'};
+  var TCOLS = {vencido:'#991b1b', proximo:'#92400e', futuro:'var(--mu)'};
+  var TAGS = {vencido:'⚠ VENCIDO', proximo:'🔔 Próximo', futuro:'📅 Futuro'};
+  el.innerHTML = eventos.map(function(e){
+    var bg = COLS[e.status];
+    var tc = TCOLS[e.status];
+    return '<div style="padding:8px 10px;border-radius:var(--rs);background:'+bg+';border:.5px solid rgba(0,0,0,0.08)">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start">'
+        +'<div>'
+          +'<div style="font-size:12px;font-weight:500;color:'+tc+'">'+e.fecha.substring(5).replace('-','/')+'  '+TAGS[e.status]+'</div>'
+          +'<div style="font-size:11px;color:var(--mu);margin-top:2px">'+e.oblig+'</div>'
+        +'</div>'
+        +'<div style="font-size:11px;font-weight:500;color:'+tc+';white-space:nowrap">'+e.monto+'</div>'
+      +'</div>'
+    +'</div>';
+  }).join('');
+}
+
+function loadCSV(input) {
+  var file = input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var text = e.target.result;
+    var lines = text.split('\n').filter(function(l){return l.trim();});
+    var result = {};
+    lines.forEach(function(line) {
+      var parts = line.split(',').map(function(p){return p.trim();});
+      if (parts.length < 8) return;
+      var fecha = parts[3];
+      var mes = fecha.substring(0,4) + '-' + fecha.substring(4,6);
+      var valor = parseFloat(parts[5]) || 0;
+      var codigo = parts[6];
+      var desc = parts[7] ? parts[7].toUpperCase() : '';
+      if (!result[mes]) result[mes] = {totalQR:0, gmf:0, cuotaManejo:0, intereses:0, consignaciones:0};
+      if ((desc.indexOf('PAGO QR')>=0 || desc.indexOf('PAGO LLAVE')>=0) && valor > 0) result[mes].totalQR += valor;
+      if (codigo === '3339') result[mes].gmf += Math.abs(valor);
+      if (codigo === '1280') result[mes].cuotaManejo += Math.abs(valor);
+      if (codigo === '2999') result[mes].intereses += valor;
+      if (desc.indexOf('CONSIG')>=0) result[mes].consignaciones += valor;
+    });
+    // Merge into CSV_DATA
+    Object.keys(result).forEach(function(m){ CSV_DATA[m] = result[m]; });
+    var meses = Object.keys(result).join(', ');
+    var status = document.getElementById('csv-status');
+    if (status) status.textContent = '✓ CSV cargado: ' + meses;
+    renderPYG();
+  };
+  reader.readAsText(file, 'latin1');
+}
+
+// Pre-load abril CSV data from what we already parsed
+CSV_DATA['2026-04'] = {totalQR: 7568049, gmf: 41267, cuotaManejo: 14900, intereses: 54, consignaciones: 536000};
 
 function sw(id,el){
   document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('on');});
