@@ -2173,7 +2173,8 @@ function renderPYG() {
 }
 
 function toggleGrupo(key) {
-  GRUPO_OPEN[key] = GRUPO_OPEN[key] === false ? true : false;
+  // undefined = open (default), true = open, false = closed
+  GRUPO_OPEN[key] = (GRUPO_OPEN[key] !== false) ? false : true;
   var isOpen = GRUPO_OPEN[key] !== false;
   var ico = document.getElementById('ico-'+key);
   if (ico) ico.textContent = isOpen ? '▾' : '▸';
@@ -2235,9 +2236,12 @@ function ejecutarCSV() {
       var codigo = parts[6] || '';
       var desc = (parts[7] || '').toUpperCase();
       if (!result[mes]) result[mes] = {totalQR:0, gmf:0, cuotaManejo:0, intereses:0, consignaciones:0};
-      // Bancolombia QR payments come as credits (positive values)
-      var isQR = (desc.indexOf('PAGO QR')>=0||desc.indexOf('LLAVE')>=0||desc.indexOf('TRANSFER')>=0||codigo==='4027'||codigo==='4065'||codigo==='4160');
-      if (isQR && valor>0) result[mes].totalQR += valor;
+      // Codes from real Bancolombia CSV:
+      // 4027/4065 = PAGO QR (customer payments via QR)
+      // 4160 = TRANSFERENCIA CTA (bank transfers from customers)
+      // 9124 = TRANSFERENCIA DESDE NEQUI
+      var isIngreso = (codigo==='4027'||codigo==='4065'||codigo==='4160'||codigo==='9124'||desc.indexOf('PAGO QR')>=0);
+      if (isIngreso && valor>0) result[mes].totalQR += valor;
       if (codigo==='3339') result[mes].gmf += Math.abs(valor);
       if (codigo==='1280') result[mes].cuotaManejo += Math.abs(valor);
       if (codigo==='2999') result[mes].intereses += valor;
@@ -2263,15 +2267,19 @@ function renderFondo() {
   var INICIO_OP = '2026-03';
   var mesesHasta = ALL_MESES.filter(function(m){ return m >= INICIO_OP && m <= mesSel; });
   var n = mesesHasta.length || 3;
-  // Fondo objetivo = sum of monthly provisions since start
+  // Objetivo acumulado = provisiones mensuales × meses transcurridos
   var totalObj = PROV_TOTAL_MES * n;
-  // Subtract any payments made from fund (PAGO PROVISION category)
+  // Pagos realizados desde el fondo (PAGO PROVISION) reducen lo que falta
   var pagadoDeFondo = DATA ? (DATA.egresos||[]).filter(function(r){
     return r.categoria==='PAGO PROVISION' && String(r.fecha).substring(0,7) <= mesSel;
   }).reduce(function(s,r){return s+(r.total||0);},0) : 0;
-  totalObj = Math.max(0, totalObj - pagadoDeFondo);
+  // Aportes al fondo (PROVISION NOMINA) registrados en egresos
+  var aportadoAlFondo = DATA ? (DATA.egresos||[]).filter(function(r){
+    return r.categoria==='PROVISION NOMINA' && String(r.fecha).substring(0,7) <= mesSel;
+  }).reduce(function(s,r){return s+(r.total||0);},0) : 0;
   var saldo = parseFloat(document.getElementById('fondo-saldo') ? document.getElementById('fondo-saldo').textContent.replace(/[^0-9]/g,'') : 40000)||40000;
-  var faltante = totalObj - saldo;
+  // Faltante = lo que debería estar en fondo - lo que hay + lo ya pagado
+  var faltante = Math.max(0, totalObj - saldo);
   var items = [
     {l:'Prima ('+n+' mes)', v:PROV_PRIMA*n},
     {l:'Cesantías', v:PROV_CES*n},
@@ -2312,8 +2320,12 @@ function renderEfectivo() {
     }
   }
   saldoInicio = saldoBase;
-  var ingMes = (DATA.ingresos||[]).filter(function(r){return String(r.fecha).substring(0,7)===mes;}).sort(function(a,b){return a.fecha<b.fecha?-1:1;});
-  var egMes  = (DATA.egresos||[]).filter(function(r){return String(r.fecha).substring(0,7)===mes && r.medio==='EFECTIVO';}).sort(function(a,b){return a.fecha<b.fecha?-1:1;});
+  var ingMes = (DATA.ingresos||[]).filter(function(r){
+    return String(r.fecha).substring(0,7)===mes && ((r.efectivo||0)>0||(r.total||0)>0);
+  }).sort(function(a,b){return a.fecha<b.fecha?-1:1;});
+  var egMes  = (DATA.egresos||[]).filter(function(r){
+    return String(r.fecha).substring(0,7)===mes && (r.medio||'').toUpperCase().indexOf('EFECTIVO')>=0;
+  }).sort(function(a,b){return a.fecha<b.fecha?-1:1;});
   var consigMes = (DATA.egresos||[]).filter(function(r){return String(r.fecha).substring(0,7)===mes && r.categoria==='CONSIGNACION EFECTIVO';});
 
   // Build daily map
