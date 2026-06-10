@@ -852,7 +852,7 @@ function updateVentasChart(){
   CH.ventas.data.labels=ing.map(function(r){return r.fecha.substring(5);});
   CH.ventas.data.datasets[0].data=ing.map(function(r){return r[field]||0;});
   CH.ventas.data.datasets[0].borderColor=colors[tipo]||PAL[1];
-  var baseColor=colors[tipo]||PAL[1]; CH.ventas.data.datasets[0].backgroundColor=baseColor.indexOf('rgba')>=0?baseColor:baseColor.replace('rgb','rgba').replace(')',',' + '0.1' + ')');
+  var baseColor=colors[tipo]||PAL[1]; var cp=')'; CH.ventas.data.datasets[0].backgroundColor=baseColor.indexOf('rgba')>=0?baseColor:baseColor.replace('rgb','rgba').replace(cp,',0.1'+cp);
   CH.ventas.update();
 }
 
@@ -2251,8 +2251,10 @@ function ejecutarCSV() {
     var mesesCSV = Object.keys(result);
     var status = document.getElementById('csv-status');
     if (status) status.textContent = '✓ Cargado: '+mesesCSV.join(', ');
-    // Force render conciliacion immediately
-    var mesSel = document.getElementById('pyg-mes') ? document.getElementById('pyg-mes').value : '2026-05';
+    // Switch to the CSV month and render conciliation
+    var mesSel = mesesCSV.length > 0 ? mesesCSV[mesesCSV.length-1] : '2026-05';
+    var pygMes = document.getElementById('pyg-mes');
+    if (pygMes) pygMes.value = mesSel;
     renderConciliacion(mesSel);
     renderPYG();
   };
@@ -2286,16 +2288,16 @@ function renderFondo() {
   var saldo = parseFloat(document.getElementById('fondo-saldo') ? document.getElementById('fondo-saldo').textContent.replace(/[^0-9]/g,'') : 40000)||40000;
   // Faltante = lo que debería estar en fondo - lo que hay + lo ya pagado
   var faltante = Math.max(0, totalObj - saldo);
-  var items = [
-    {l:'Prima ('+n+' mes)', v:PROV_PRIMA*n},
-    {l:'Cesantías', v:PROV_CES*n},
-    {l:'Int. cesantías', v:PROV_INT_CES*n},
-    {l:'Vacaciones', v:PROV_VAC*n},
-  ];
-  el.innerHTML = items.map(function(i){
+  // Show provisions by month from actual P&G data
+  var rowsHtml = mesesHasta.map(function(m){
+    var d = DATA ? buildPYGData(m) : null;
+    var prov = d ? d.totalProv : PROV_TOTAL_MES;
+    var label = (MESES_LABELS[m]||m)+' 2026';
     return '<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0">'
-      +'<span style="color:var(--mu)">'+i.l+'</span><span>'+fmtF(Math.round(i.v))+'</span></div>';
-  }).join('')
+      +'<span style="color:var(--mu)">Provisiones '+label+'</span>'
+      +'<span>'+fmtF(Math.round(prov))+'</span></div>';
+  }).join('');
+  el.innerHTML = rowsHtml
   +'<div style="border-top:.5px solid var(--b);margin-top:5px;padding-top:5px">'
   +'<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:600"><span>Objetivo acum.</span><span>'+fmtF(Math.round(totalObj))+'</span></div>'
   +'<div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--mu)">Saldo fondo</span><span style="color:#16a34a">'+fmtF(saldo)+'</span></div>'
@@ -2327,7 +2329,7 @@ function renderEfectivo() {
   }
   saldoInicio = saldoBase;
   var ingMes = (DATA.ingresos||[]).filter(function(r){
-    return String(r.fecha).substring(0,7)===mes && ((r.efectivo||0)>0||(r.total||0)>0);
+    return String(r.fecha).substring(0,7)===mes && (r.efectivo||0)>0;
   }).sort(function(a,b){return a.fecha<b.fecha?-1:1;});
   var egMes  = (DATA.egresos||[]).filter(function(r){
     return String(r.fecha).substring(0,7)===mes && (r.medio||'').toUpperCase().indexOf('EFECTIVO')>=0;
