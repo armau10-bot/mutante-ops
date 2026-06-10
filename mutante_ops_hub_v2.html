@@ -547,13 +547,13 @@ input:focus,select:focus{outline:none;border-color:var(--ac)}
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:6px;font-size:12px">
           <span style="color:var(--mu)">Efectivo inicio de mes ($):</span>
-          <span class="ec" contenteditable="true" id="ef-inicio" onblur="renderEfectivo()" style="min-width:70px;font-weight:600">0</span>
+          <span class="ec" contenteditable="true" id="pyg-ef-inicio" onblur="renderEfectivo()" style="min-width:70px;font-weight:600">0</span>
         </div>
-        <select id="ef-mes" onchange="renderEfectivo()" style="font-size:11px;padding:4px 8px">
+        <select id="pyg-ef-mes" onchange="renderEfectivo()" style="font-size:11px;padding:4px 8px">
           <option value="2026-03">Mar 2026</option>
           <option value="2026-04">Abr 2026</option>
-          <option value="2026-05" selected>May 2026</option>
-          <option value="2026-06">Jun 2026</option>
+          <option value="2026-05">May 2026</option>
+          <option value="2026-06" selected>Jun 2026</option>
         </select>
       </div>
     </div>
@@ -2313,16 +2313,16 @@ function renderFondo() {
 function renderEfectivo() {
   var el = document.getElementById('ef-tbody');
   if (!el || !DATA) return;
-  var mes = document.getElementById('ef-mes') ? document.getElementById('ef-mes').value : '2026-05';
-  var saldoInicio = parseFloat(document.getElementById('ef-inicio') ? document.getElementById('ef-inicio').textContent.replace(/[^0-9]/g,'') : 0)||0;
+  var mes = document.getElementById('pyg-ef-mes') ? document.getElementById('pyg-ef-mes').value : '2026-06';
+  var saldoInicio = parseFloat(document.getElementById('pyg-ef-inicio') ? document.getElementById('pyg-ef-inicio').textContent.replace(/[^0-9]/g,'') : 0)||0;
 
   // For June+, use real opening balance from end of May
   var SALDO_EF_31MAY = 583660;
   var saldoBase = saldoInicio;
   if (mes >= '2026-06' && saldoInicio === 0) {
     saldoBase = SALDO_EF_31MAY;
-    var efInicioEl = document.getElementById('ef-inicio');
-    if (efInicioEl && efInicioEl.textContent.trim() === '0') {
+    var efInicioEl = document.getElementById('pyg-ef-inicio');
+    if (efInicioEl && (efInicioEl.textContent.trim() === '0' || efInicioEl.textContent.trim() === '')) {
       efInicioEl.textContent = '583660';
       saldoBase = 583660;
     }
@@ -2480,8 +2480,9 @@ function renderFlujo(meses, allData) {
   var tbody = document.getElementById('flujo-tbody');
   if (!thead||!tbody||!meses) return;
 
-  // Declare mesesFlujo FIRST before using it
-  var mesesFlujo = meses.filter(function(m){return m >= '2026-05';});
+  // Start from June — real opening balances from May 31 closing
+  var mesesFlujo = meses.filter(function(m){return m >= '2026-06';});
+  if (mesesFlujo.length === 0) mesesFlujo = meses.filter(function(m){return m >= '2026-05';});
   if (mesesFlujo.length === 0) mesesFlujo = meses;
 
   thead.innerHTML = '<tr style="background:rgba(0,0,0,0.04)">'
@@ -2498,18 +2499,20 @@ function renderFlujo(meses, allData) {
 
 
   var conceptos = [
-    {l:'(+) Ingresos QR / transferencia', fn:function(d){return d?d.ingQR:0;}, pos:true},
-    {l:'(+) Ingresos efectivo', fn:function(d){return d?d.ingEf:0;}, pos:true},
+    {l:'Saldo inicial cuenta', fn:function(d,m){return m==='2026-06'?1235286:0;}, pos:true, bold:true},
+    {l:'Saldo inicial efectivo', fn:function(d,m){return m==='2026-06'?583660:0;}, pos:true, bold:true},
+    {l:'(+) Ingresos QR / transferencia', fn:function(d,m){return d?d.ingQR:0;}, pos:true},
+    {l:'(+) Ingresos efectivo', fn:function(d,m){return d?d.ingEf:0;}, pos:true},
     {l:'(-) Egresos operativos', fn:function(d){return d?-d.egTotal:0;}, neg:true},
-    {l:'(-) Provisión al fondo', fn:function(d){return -PROV_TOTAL_MES;}, neg:true},
-    {l:'(-) Gastos bancarios', fn:function(d){return d?-d.gastosBancarios:0;}, neg:true},
+    {l:'(-) Provisión al fondo', fn:function(d,m){return -PROV_TOTAL_MES;}, neg:true},
+    {l:'(-) Gastos bancarios', fn:function(d,m){return d?-d.gastosBancarios:0;}, neg:true},
     {l:'= Flujo neto del mes', fn:function(d){return d?d.ingQR+d.ingEf-d.egTotal-PROV_TOTAL_MES-d.gastosBancarios:0;}, bold:true},
   ];
 
   tbody.innerHTML = conceptos.map(function(c){
     var cells = mesesFlujo.map(function(m){
       var d = allData[m];
-      var v = c.fn(d);
+      var v = c.fn(d, m);
       var col = v<0?'color:#dc2626':v>0?'color:#16a34a':'color:var(--hi)';
       return '<td style="padding:6px 10px;text-align:center;font-size:12px;'+col+(c.bold?';font-weight:600':'')+'">'+fmtF(Math.round(Math.abs(v)))+(v<0?' ▼':'')+'</td>';
     }).join('');
