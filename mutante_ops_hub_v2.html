@@ -1922,74 +1922,88 @@ function sumCat(eg, cats) {
 
 function buildPYGData(mes) {
   if (!DATA) return null;
-  var eg  = (DATA.egresos||[]).filter(function(r){return String(r.fecha).substring(0,7)===mes && CATS_EXCLUIR.indexOf(r.categoria)<0;});
-  var ing = (DATA.ingresos||[]).filter(function(r){return String(r.fecha).substring(0,7)===mes;});
+  var allEg = DATA.egresos || [];
+  // Exclude internal movements from P&G
+  var EXCLUIR = ['PROVISION NOMINA','PAGO PROVISION','CONSIGNACION EFECTIVO','IMPOCONSUMO DIAN','RETENCION FUENTE','GASTO BANCARIO'];
+  var eg = allEg.filter(function(r){ return String(r.fecha).substring(0,7)===mes && EXCLUIR.indexOf(r.categoria)<0; });
+  var ing = (DATA.ingresos||[]).filter(function(r){ return String(r.fecha).substring(0,7)===mes; });
 
-  var ventasBrutas = ing.reduce(function(s,r){return s+r.total;},0);
+  var ventasBrutas = ing.reduce(function(s,r){return s+(r.total||0);},0);
   var ipoconsumo   = Math.round(ventasBrutas * IPOC_RATE);
   var ventasNetas  = ventasBrutas - ipoconsumo;
 
-  var comprasAlim  = sumCat(eg, CATS_COMPRAS);
+  // COSTO DE VENTAS — solo PROVEEDORES (alimentos)
+  var comprasAlim = eg.filter(function(r){return r.categoria==='PROVEEDORES';}).reduce(function(s,r){return s+(r.total||0);},0);
   var utilidadBruta = ventasNetas - comprasAlim;
 
-  // Gastos funcionamiento
-  var nomina   = sumCat(eg, CATS_NOMINA);
-  var arriendoEg = sumCat(eg, CATS_ARRIENDO);
-  // Use manual arriendo if none in egresos
+  // GASTOS DE FUNCIONAMIENTO
+  // Nómina = NOMINA category (includes SS paid from personal accounts)
+  var nomina  = eg.filter(function(r){return r.categoria==='NOMINA';}).reduce(function(s,r){return s+(r.total||0);},0);
+  // Arriendo
+  var arriendoEg = eg.filter(function(r){return r.categoria==='ARRIENDO LAPALA'||r.categoria==='PAGO ARRIENDO';}).reduce(function(s,r){return s+(r.total||0);},0);
   var arriendoInput = document.getElementById('pyg-arriendo');
-  var arriendoMan = arriendoInput ? parseFloat(arriendoInput.textContent.replace(/[^0-9]/g,''))||1200000 : 1200000;
-  var arriendo = arriendoEg > 0 ? arriendoEg : arriendoMan;
-  var gas      = sumCat(eg, CATS_GAS);
-  var redes    = sumCat(eg, CATS_REDES);
-  var contab   = sumCat(eg, CATS_CONTAB);
-  var empaques = sumCat(eg, CATS_EMPAQUE);
-  var eventos  = sumCat(eg, CATS_EVENTOS);
-  var propinas = sumCat(eg, CATS_PROPINAS);
+  var arriendo = arriendoEg > 0 ? arriendoEg : (arriendoInput ? parseFloat(arriendoInput.textContent.replace(/[^0-9]/g,''))||1200000 : 1200000);
+  // Gas
+  var gas = eg.filter(function(r){return r.categoria==='GAS';}).reduce(function(s,r){return s+(r.total||0);},0);
+  // Redes
+  var redes = eg.filter(function(r){return r.categoria==='REDES';}).reduce(function(s,r){return s+(r.total||0);},0);
+  // Contabilidad
+  var contab = eg.filter(function(r){return r.categoria==='CONTABILIDAD';}).reduce(function(s,r){return s+(r.total||0);},0);
+  // Compras = COMPRAS category (empaques, insumos no-alimentos, mercado pago, letreros, etc.)
+  var compras = eg.filter(function(r){return r.categoria==='COMPRAS';}).reduce(function(s,r){return s+(r.total||0);},0);
+  // Apoyo eventos y servicios adicionales
+  var eventos = eg.filter(function(r){return r.categoria==='APOYO A EVENTOS'||r.categoria==='SERVICIOS ADICIONALES';}).reduce(function(s,r){return s+(r.total||0);},0);
+  // Impuestos y tramites
+  var impuestos = eg.filter(function(r){return r.categoria==='IMPUESTOS Y TRAMITES';}).reduce(function(s,r){return s+(r.total||0);},0);
+  // Propinas — fuera del P&G operativo
+  var propinas = eg.filter(function(r){return r.categoria==='PROPINAS';}).reduce(function(s,r){return s+(r.total||0);},0);
 
-  var totalGF = nomina + arriendo + gas + redes + contab + empaques + eventos;
+  var totalGF = nomina + arriendo + gas + redes + contab + compras + eventos + impuestos;
   var utilidadOperacional = utilidadBruta - totalGF;
 
   // Gastos financieros (del CSV)
   var csv = CSV_DATA[mes];
-  var gastosBancarios = csv ? (csv.gmf||0)+(csv.cuotaManejo||0) : 0;
-  var ebitda = utilidadOperacional; // sin depreciaciones
+  var gastosBancarios = csv ? ((csv.gmf||0)+(csv.cuotaManejo||0)) : 0;
+  var ebitda = utilidadOperacional;
 
-  // Provisiones — solo del mes (no acumuladas)
+  // Retención en la fuente estimada (11% sobre redes/honorarios persona natural)
+  var rtefte = Math.round(redes * 0.11);
+
+  // Provisiones del MES (no acumuladas)
   var provNomina = PROV_TOTAL_MES;
-  var provIpoc   = ipoconsumo; // provisionar el ipoconsumo del mes
+  var provIpoc   = ipoconsumo;
   var provRenta  = Math.max(0, Math.round(Math.max(0,utilidadOperacional) * 0.35 / 12));
-  var totalProv  = provNomina + provIpoc + provRenta;
+  var provRtefte = rtefte;
+  var totalProv  = provNomina + provIpoc + provRenta + provRtefte;
 
   var utilidadNeta = utilidadOperacional - gastosBancarios - totalProv;
 
-  // Flujo de caja
-  var ingQR   = ing.reduce(function(s,r){return s+r.qr;},0);
-  var ingEf   = ing.reduce(function(s,r){return s+r.efectivo;},0);
-  var egTotal  = eg.reduce(function(s,r){return s+r.total;},0);
-  var consig   = (DATA.egresos||[]).filter(function(r){return String(r.fecha).substring(0,7)===mes&&r.categoria==='CONSIGNACION EFECTIVO';}).reduce(function(s,r){return s+r.total;},0);
-  var provFondo= (DATA.egresos||[]).filter(function(r){return String(r.fecha).substring(0,7)===mes&&r.categoria==='PROVISION NOMINA';}).reduce(function(s,r){return s+r.total;},0);
+  // Flujo efectivo
+  var ingQR  = ing.reduce(function(s,r){return s+(r.qr||0);},0);
+  var ingEf  = ing.reduce(function(s,r){return s+(r.efectivo||0);},0);
+  var egOpTotal = eg.reduce(function(s,r){return s+(r.total||0);},0) - propinas; // propinas no son egreso del negocio
+  var consigMes = allEg.filter(function(r){return String(r.fecha).substring(0,7)===mes&&r.categoria==='CONSIGNACION EFECTIVO';}).reduce(function(s,r){return s+Math.abs(r.total||0);},0);
+  var provFondo = allEg.filter(function(r){return String(r.fecha).substring(0,7)===mes&&r.categoria==='PROVISION NOMINA';}).reduce(function(s,r){return s+(r.total||0);},0);
 
   return {
     mes:mes, ventasBrutas:ventasBrutas, ipoconsumo:ipoconsumo, ventasNetas:ventasNetas,
     comprasAlim:comprasAlim, utilidadBruta:utilidadBruta,
     nomina:nomina, arriendo:arriendo, gas:gas, redes:redes, contab:contab,
-    empaques:empaques, eventos:eventos, propinas:propinas,
+    compras:compras, eventos:eventos, impuestos:impuestos, propinas:propinas,
     totalGF:totalGF, utilidadOperacional:utilidadOperacional,
     ebitda:ebitda, gastosBancarios:gastosBancarios,
-    provNomina:provNomina, provIpoc:provIpoc, provRenta:provRenta, totalProv:totalProv,
+    provNomina:provNomina, provIpoc:provIpoc, provRenta:provRenta,
+    rtefte:rtefte, provRtefte:provRtefte, totalProv:totalProv,
     utilidadNeta:utilidadNeta,
     foodCostPct:ventasNetas?comprasAlim/ventasNetas:0,
     laborCostPct:ventasNetas?nomina/ventasNetas:0,
     margenBruto:ventasNetas?utilidadBruta/ventasNetas:0,
     margenOp:ventasNetas?utilidadOperacional/ventasNetas:0,
     margenNeto:ventasNetas?utilidadNeta/ventasNetas:0,
-    ingQR:ingQR, ingEf:ingEf, egTotal:egTotal,
-    consig:Math.abs(consig), provFondo:provFondo,
+    ingQR:ingQR, ingEf:ingEf, egOpTotal:egOpTotal,
+    consigMes:consigMes, provFondo:provFondo,
   };
 }
-
-// ── RENDER P&G TABLE (horizontal) ─────────────────────────────
-var GRUPO_OPEN = {};
 
 function renderPYG() {
   if (!DATA) return;
@@ -2063,7 +2077,9 @@ function renderPYG() {
   addRow('Redes + Pauta', function(d){return d.redes;}, true, false, true);
   addRow('Contabilidad', function(d){return d.contab;}, true, false, true);
   addRow('Empaques', function(d){return d.empaques;}, true, false, true);
-  addRow('Apoyo a eventos', function(d){return d.eventos;}, true, false, true);
+  addRow('Compras e insumos', function(d){return d.compras;}, true, false, true);
+  addRow('Apoyo a eventos / servicios', function(d){return d.eventos;}, true, false, true);
+  addRow('Impuestos y trámites', function(d){return d.impuestos;}, true, false, true);
   addRow('TOTAL GASTOS FUNC.', function(d){return d.totalGF;}, false, true, true);
 
   addRow('Propinas (∗ no es gasto)', function(d){return d.propinas;}, false, false);
@@ -2079,6 +2095,7 @@ function renderPYG() {
   addSection('PROVISIONES DEL MES','prov','▸');
   addRow('Prov. prestaciones nómina', function(d){return d.provNomina;}, true, false, true);
   addRow('Prov. impoconsumo mes', function(d){return d.provIpoc;}, true, false, true);
+  addRow('Prov. retención en la fuente', function(d){return d.provRtefte;}, true, false, true);
   addRow('Prov. renta (estimado)', function(d){return d.provRenta;}, true, false, true);
   addRow('TOTAL PROVISIONES', function(d){return d.totalProv;}, false, true, true);
   addSep('');
@@ -2232,7 +2249,9 @@ function ejecutarCSV() {
       var codigo = parts[6] || '';
       var desc = (parts[7] || '').toUpperCase();
       if (!result[mes]) result[mes] = {totalQR:0, gmf:0, cuotaManejo:0, intereses:0, consignaciones:0};
-      if ((desc.indexOf('PAGO QR')>=0||desc.indexOf('PAGO LLAVE')>=0||codigo==='4027'||codigo==='4065') && valor>0) result[mes].totalQR += valor;
+      // Bancolombia QR payments come as credits (positive values)
+      var isQR = (desc.indexOf('PAGO QR')>=0||desc.indexOf('LLAVE')>=0||desc.indexOf('TRANSFER')>=0||codigo==='4027'||codigo==='4065'||codigo==='4160');
+      if (isQR && valor>0) result[mes].totalQR += valor;
       if (codigo==='3339') result[mes].gmf += Math.abs(valor);
       if (codigo==='1280') result[mes].cuotaManejo += Math.abs(valor);
       if (codigo==='2999') result[mes].intereses += valor;
@@ -2251,12 +2270,17 @@ function renderFondo() {
   var el = document.getElementById('fondo-rows');
   if (!el) return;
   var mesSel = document.getElementById('pyg-mes') ? document.getElementById('pyg-mes').value : '2026-05';
-  var mesesHasta = ALL_MESES.filter(function(m){
-    var hasData = DATA && (DATA.ingresos||[]).some(function(r){return String(r.fecha).substring(0,7)===m&&r.total>0;});
-    return hasData && m <= mesSel;
-  });
+  // Accumulate from first month of operation
+  var INICIO_OP = '2026-03';
+  var mesesHasta = ALL_MESES.filter(function(m){ return m >= INICIO_OP && m <= mesSel; });
   var n = mesesHasta.length || 3;
+  // Fondo objetivo = sum of monthly provisions since start
   var totalObj = PROV_TOTAL_MES * n;
+  // Subtract any payments made from fund (PAGO PROVISION category)
+  var pagadoDeFondo = DATA ? (DATA.egresos||[]).filter(function(r){
+    return r.categoria==='PAGO PROVISION' && String(r.fecha).substring(0,7) <= mesSel;
+  }).reduce(function(s,r){return s+(r.total||0);},0) : 0;
+  totalObj = Math.max(0, totalObj - pagadoDeFondo);
   var saldo = parseFloat(document.getElementById('fondo-saldo') ? document.getElementById('fondo-saldo').textContent.replace(/[^0-9]/g,'') : 40000)||40000;
   var faltante = totalObj - saldo;
   var items = [
@@ -2287,6 +2311,18 @@ function renderEfectivo() {
   var mes = document.getElementById('ef-mes') ? document.getElementById('ef-mes').value : '2026-05';
   var saldoInicio = parseFloat(document.getElementById('ef-inicio') ? document.getElementById('ef-inicio').textContent.replace(/[^0-9]/g,'') : 0)||0;
 
+  // For June+, use real opening balance from end of May
+  var SALDO_EF_31MAY = 583660;
+  var saldoBase = saldoInicio;
+  if (mes >= '2026-06' && saldoInicio === 0) {
+    saldoBase = SALDO_EF_31MAY;
+    var efInicioEl = document.getElementById('ef-inicio');
+    if (efInicioEl && efInicioEl.textContent.trim() === '0') {
+      efInicioEl.textContent = '583660';
+      saldoBase = 583660;
+    }
+  }
+  saldoInicio = saldoBase;
   var ingMes = (DATA.ingresos||[]).filter(function(r){return String(r.fecha).substring(0,7)===mes;}).sort(function(a,b){return a.fecha<b.fecha?-1:1;});
   var egMes  = (DATA.egresos||[]).filter(function(r){return String(r.fecha).substring(0,7)===mes && r.medio==='EFECTIVO';}).sort(function(a,b){return a.fecha<b.fecha?-1:1;});
   var consigMes = (DATA.egresos||[]).filter(function(r){return String(r.fecha).substring(0,7)===mes && r.categoria==='CONSIGNACION EFECTIVO';});
@@ -2440,8 +2476,12 @@ function renderFlujo(meses, allData) {
     + meses.map(function(m){return '<th style="padding:6px 10px;text-align:center;font-size:11px;color:var(--hi)">'+MESES_LABELS[m]+'</th>';}).join('')
     +'</tr>';
 
+  // Show saldo inicial for mayo
+  var SALDO_CUENTA_MAY = 1235286; // Saldo cuenta 31-may
+  var SALDO_EF_MAY = 583660;      // Efectivo 31-may
+
   var conceptos = [
-    {l:'(+) Ingresos QR/cuenta', fn:function(d){return d?d.ingQR:0;}, pos:true},
+    {l:'(+) Ingresos QR / transferencia', fn:function(d){return d?d.ingQR:0;}, pos:true},
     {l:'(+) Ingresos efectivo', fn:function(d){return d?d.ingEf:0;}, pos:true},
     {l:'(-) Egresos operativos', fn:function(d){return d?-d.egTotal:0;}, neg:true},
     {l:'(-) Provisión al fondo', fn:function(d){return -PROV_TOTAL_MES;}, neg:true},
