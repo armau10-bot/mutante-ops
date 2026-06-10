@@ -2268,7 +2268,13 @@ function renderFondo() {
   var mesesHasta = ALL_MESES.filter(function(m){ return m >= INICIO_OP && m <= mesSel; });
   var n = mesesHasta.length || 3;
   // Objetivo acumulado = provisiones mensuales × meses transcurridos
-  var totalObj = PROV_TOTAL_MES * n;
+  // Objetivo = suma de TODAS las provisiones de cada mes
+  var totalObj = 0;
+  mesesHasta.forEach(function(m) {
+    var d = DATA ? buildPYGData(m) : null;
+    if (d) totalObj += d.totalProv;
+    else totalObj += PROV_TOTAL_MES; // fallback if no data
+  });
   // Pagos realizados desde el fondo (PAGO PROVISION) reducen lo que falta
   var pagadoDeFondo = DATA ? (DATA.egresos||[]).filter(function(r){
     return r.categoria==='PAGO PROVISION' && String(r.fecha).substring(0,7) <= mesSel;
@@ -2472,20 +2478,22 @@ function renderFlujo(meses, allData) {
   var tbody = document.getElementById('flujo-tbody');
   if (!thead||!tbody||!meses) return;
 
+  // Declare mesesFlujo FIRST before using it
+  var mesesFlujo = meses.filter(function(m){return m >= '2026-05';});
+  if (mesesFlujo.length === 0) mesesFlujo = meses;
+
   thead.innerHTML = '<tr style="background:rgba(0,0,0,0.04)">'
     +'<th style="padding:6px 12px;text-align:center;font-size:11px;color:var(--hi)">CONCEPTO</th>'
     + mesesFlujo.map(function(m){return '<th style="padding:6px 10px;text-align:center;font-size:11px;color:var(--hi)">'+MESES_LABELS[m]+'</th>';}).join('')
     +'</tr>';
 
-  // Show saldo inicial for mayo
-  var SALDO_CUENTA_MAY = 1235286; // Saldo cuenta 31-may
-  var SALDO_EF_MAY = 583660;      // Efectivo 31-may
-
-  // Flujo starts from May — real closing balances
   var SALDO_CUENTA_31MAY = 1235286;
   var SALDO_EF_31MAY = 583660;
-  var mesesFlujo = meses ? meses.filter(function(m){return m >= '2026-05';}) : [];
-  if (mesesFlujo.length === 0) mesesFlujo = meses || [];
+
+
+    +'<th style="padding:6px 12px;text-align:center;font-size:11px;color:var(--hi)">CONCEPTO</th>'
+
+
 
   var conceptos = [
     {l:'(+) Ingresos QR / transferencia', fn:function(d){return d?d.ingQR:0;}, pos:true},
