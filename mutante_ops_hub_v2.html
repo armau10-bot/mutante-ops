@@ -2123,17 +2123,11 @@ function renderPYG() {
   addRow('Impuestos y trámites', function(d){return d.impuestos;}, true, false, true);
   addRow('TOTAL GASTOS FUNCIONAMIENTO', function(d){return d.totalGF;}, false, true, true);
 
+  // ── CxP del mes resta ANTES de utilidad operacional
+  addSection('CxP DEL MES','cxp');
+  addRow('Facturas pendientes de pago del periodo', function(d){return d.cxpMes||0;}, true, false, true);
   addRow('UTILIDAD OPERACIONAL', function(d){return d.utilidadOperacional;}, false, true);
   addRow('EBITDA', function(d){return d.ebitda;}, false, false);
-
-  // ── CxP DEL MES
-  addSection('CxP DEL MES (facturas pendientes de pago)','cxp');
-  addRow('Facturas pendientes pago (ver Proveedores)', function(d){return d.cxpMes||0;}, true, false, true);
-  addRow('Pagos de CxP meses anteriores (excluidos)', function(d){return d.pagoCxP||0;}, true, false);
-
-  // ── CARTERA ACUMULADA
-  addSection('CARTERA ACUMULADA','cart');
-  addRow('Total pendiente de cobro/pago al cierre', function(d){return d.cartera||0;}, true, false, true);
 
   // ── GASTOS FINANCIEROS (collapsible)
   addSection('GASTOS FINANCIEROS','gfin');
@@ -2149,6 +2143,10 @@ function renderPYG() {
 
   addRow('UTILIDAD NETA (antes de provisiones)', function(d){return d.utilidadOperacional - d.gastosBancarios;}, false, true);
   addRow('RESULTADO DESPUÉS DE PROVISIONES', function(d){return d.utilidadNeta;}, false, true);
+
+  // ── CARTERA — solo informativa, no afecta P&G
+  addSection('CARTERA ACUMULADA (informativo)','cart');
+  addRow('Total pendiente al cierre del mes', function(d){return d.cartera||0;}, true, false);
 
   // Render
   var tbody = document.getElementById('pyg-tbody');
